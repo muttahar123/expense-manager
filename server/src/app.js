@@ -13,6 +13,16 @@ app.use(
 );
 app.use(express.json());
 
+// Friendly root — this is an API-only server; the UI runs on the Vite dev server.
+app.get('/', (req, res) => {
+  res.json({
+    name: 'Wealth & Expense Manager API',
+    status: 'running',
+    hint: 'This is the API. Open the app UI at http://localhost:5173',
+    endpoints: ['/api/health', '/api/me', '/api/transactions', '/api/investments', '/api/insights'],
+  });
+});
+
 app.use('/api', routes);
 
 app.use(notFound);
