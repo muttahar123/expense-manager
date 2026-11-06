@@ -5,10 +5,12 @@ import errorHandler, { notFound } from './middleware/errorHandler.js';
 
 const app = express();
 
+// On Vercel the frontend and API are same-origin, so CORS is a no-op there.
+// For local two-terminal dev (Vite proxy) it's also unnecessary, but we keep a
+// configurable allow-list for flexibility. Auth uses Bearer tokens, not cookies.
 app.use(
   cors({
-    origin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
-    credentials: true,
+    origin: process.env.CLIENT_ORIGIN || true,
   })
 );
 app.use(express.json());

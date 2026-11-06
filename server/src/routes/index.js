@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import currentUser from '../middleware/currentUser.js';
+import requireAuth from '../middleware/auth.js';
 import {
   createTransaction,
   listTransactions,
@@ -18,8 +18,8 @@ const router = Router();
 
 router.get('/health', (req, res) => res.json({ status: 'ok', time: new Date().toISOString() }));
 
-// Everything below needs a resolved user.
-router.use(currentUser);
+// Everything below requires a signed-in user (Supabase/Google JWT).
+router.use(requireAuth);
 
 // Current user / preferences
 router.get('/me', getMe);

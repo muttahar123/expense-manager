@@ -1,9 +1,23 @@
 import axios from 'axios';
+import { supabase } from './supabase.js';
 
-// Vite proxies /api → http://localhost:5000 in dev (see vite.config.js).
+// Vite proxies /api → http://localhost:5000 in dev (see vite.config.js);
+// on Vercel /api is same-origin (the serverless function).
 const api = axios.create({
   baseURL: '/api',
   headers: { 'Content-Type': 'application/json' },
+});
+
+// Attach the signed-in user's Supabase access token to every request so the
+// backend can verify who they are and enforce per-user data isolation.
+api.interceptors.request.use(async (config) => {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (session?.access_token) {
+    config.headers.Authorization = `Bearer ${session.access_token}`;
+  }
+  return config;
 });
 
 export const createTransaction = (data) => api.post('/transactions', data).then((r) => r.data);
