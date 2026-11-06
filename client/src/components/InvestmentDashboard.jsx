@@ -39,7 +39,7 @@ function HoldingRow({ inv, format, onUpdated }) {
   const save = async () => {
     setBusy(true);
     try {
-      await updateInvestment(inv._id, { currentValue: Number(val) });
+      await updateInvestment(inv.id, { currentValue: Number(val) });
       setEditing(false);
       onUpdated?.();
     } finally {
@@ -183,7 +183,7 @@ export default function InvestmentDashboard({ data, onRefresh }) {
         <h4 className="mb-1 text-sm font-bold text-slate-300">Holdings</h4>
         <motion.ul layout className="divide-y divide-white/5">
           {investments.map((inv) => (
-            <HoldingRow key={inv._id} inv={inv} format={format} onUpdated={onRefresh} />
+            <HoldingRow key={inv.id} inv={inv} format={format} onUpdated={onRefresh} />
           ))}
         </motion.ul>
       </div>

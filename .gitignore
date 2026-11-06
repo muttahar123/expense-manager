@@ -27,3 +27,6 @@ Thumbs.db
 # Misc
 coverage/
 .cache/
+
+# Vercel
+.vercel

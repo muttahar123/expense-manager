@@ -1,37 +1,47 @@
-import Transaction from '../models/Transaction.js';
-import Investment from '../models/Investment.js';
+import { deriveBucket, mapTransaction } from '../lib/mappers.js';
 
 // POST /api/transactions
 export async function createTransaction(req, res, next) {
   try {
     const { type, amount, category, date, notes, bucket, investment } = req.body;
 
-    const payload = {
-      user: req.userId,
-      type,
-      amount,
-      category,
-      date: date || Date.now(),
-      notes,
-      bucket,
-      investment: investment || null,
-    };
+    let investmentId = investment || null;
 
-    // If this is an Investment transaction, optionally spin up / top up a
-    // Portfolio entry so PnL stays in sync.
-    if (type === 'Investment' && !investment && req.body.assetType) {
-      const created = await Investment.create({
-        user: req.userId,
-        assetName: category || req.body.assetName || 'Untitled',
-        assetType: req.body.assetType,
-        investedAmount: amount,
-        currentValue: amount,
-      });
-      payload.investment = created._id;
+    // If this is an Investment transaction, optionally spin up a Portfolio
+    // entry so PnL stays in sync (mirrors the old Mongoose behavior).
+    if (type === 'Investment' && !investmentId && req.body.assetType) {
+      const { data: inv, error: invErr } = await req.db
+        .from('investments')
+        .insert({
+          user_id: req.userId,
+          asset_name: category || req.body.assetName || 'Untitled',
+          asset_type: req.body.assetType,
+          invested_amount: amount,
+          current_value: amount,
+        })
+        .select('*')
+        .single();
+      if (invErr) throw invErr;
+      investmentId = inv.id;
     }
 
-    const tx = await Transaction.create(payload);
-    res.status(201).json(tx);
+    const { data, error } = await req.db
+      .from('transactions')
+      .insert({
+        user_id: req.userId,
+        type,
+        amount,
+        category,
+        bucket: deriveBucket({ type, category, bucket }),
+        date: date ? new Date(date).toISOString() : new Date().toISOString(),
+        notes: notes || null,
+        investment_id: investmentId,
+      })
+      .select('*')
+      .single();
+    if (error) throw error;
+
+    res.status(201).json(mapTransaction(data));
   } catch (err) {
     next(err);
   }
@@ -41,20 +51,21 @@ export async function createTransaction(req, res, next) {
 export async function listTransactions(req, res, next) {
   try {
     const { type, from, to, limit = 100 } = req.query;
-    const q = { user: req.userId };
-    if (type) q.type = type;
-    if (from || to) {
-      q.date = {};
-      if (from) q.date.$gte = new Date(from);
-      if (to) q.date.$lte = new Date(to);
-    }
 
-    const txs = await Transaction.find(q)
-      .sort({ date: -1 })
-      .limit(Math.min(Number(limit) || 100, 500))
-      .populate('investment', 'assetName assetType');
+    let query = req.db
+      .from('transactions')
+      .select('*, investment:investments(id, asset_name, asset_type)')
+      .order('date', { ascending: false })
+      .limit(Math.min(Number(limit) || 100, 500));
 
-    res.json(txs);
+    if (type) query = query.eq('type', type);
+    if (from) query = query.gte('date', new Date(from).toISOString());
+    if (to) query = query.lte('date', new Date(to).toISOString());
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    res.json(data.map(mapTransaction));
   } catch (err) {
     next(err);
   }
@@ -63,8 +74,13 @@ export async function listTransactions(req, res, next) {
 // DELETE /api/transactions/:id
 export async function deleteTransaction(req, res, next) {
   try {
-    const deleted = await Transaction.findOneAndDelete({ _id: req.params.id, user: req.userId });
-    if (!deleted) return res.status(404).json({ error: 'Transaction not found' });
+    const { data, error } = await req.db
+      .from('transactions')
+      .delete()
+      .eq('id', req.params.id)
+      .select('id');
+    if (error) throw error;
+    if (!data.length) return res.status(404).json({ error: 'Transaction not found' });
     res.json({ ok: true });
   } catch (err) {
     next(err);
