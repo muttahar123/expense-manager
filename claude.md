@@ -1,6 +1,6 @@
 Act as an Expert Full-Stack MERN Developer and UI/UX Architect. Your task is to build a next-generation "Personal Wealth & Expense Manager". It must be incredibly fast, mobile-first, and feature a highly modern, minimalist UI (using Tailwind CSS and Framer Motion for smooth micro-interactions).
 
-**Tech Stack:** MongoDB, Express.js, React (Vite/Next.js), Node.js, Tailwind CSS, Recharts (for Sankey and PnL charts).
+**Tech Stack:** React (Vite), Supabase Auth and Postgres with Row-Level Security, Tailwind CSS, Recharts (for Sankey and PnL charts). This is a frontend-only React project; do not add a separate Express server.
 
 **Core Philosophy & UX Goals:**
 1. **Zero Friction (One-Tab Entry):** The user wants to input data with the absolute minimum number of clicks. There should be a unified "Omni-Input" tab or modal where they can instantly log Salary, an Expense, or an Investment without navigating across multiple pages.
@@ -19,11 +19,11 @@ Act as an Expert Full-Stack MERN Developer and UI/UX Architect. Your task is to 
    - **Investment & PnL Tracker:** A dedicated section showing where money is invested (e.g., Stocks, Crypto, Business). It must calculate and display real-time Profit/Loss (PnL) margins, ROI percentages, and current portfolio value.
 
 3. **"Zero-API" Smart Agent (Rule-Based Insights):**
-   - A custom Node.js utility that acts as an AI without external LLMs.
+   - A custom browser-side utility that acts as an AI without external LLMs.
    - **Cashflow Insights:** Warns if spending in a specific category exceeds the 50/30/20 rule benchmarks.
    - **Investment Insights:** Analyzes PnL (e.g., "Your crypto portfolio is down 10%, but your business investments are yielding a 15% profit. Overall wealth is stable.").
 
-4. **Database Models (Mongoose):**
+4. **Database Tables (Supabase Postgres):**
    - `User`: Base currency, salary dates, financial goals.
    - `Transaction`: Amount, Type (Income/Expense/Investment), Category, Date, Notes.
    - `Portfolio/Investment`: Asset Name, Invested Amount, Current Value, Status (Active/Closed), ROI.

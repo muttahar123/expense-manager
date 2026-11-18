@@ -7,12 +7,14 @@ const UserContext = createContext(null);
 export function UserProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [schemaMissing, setSchemaMissing] = useState(false);
 
   const load = useCallback(async () => {
     try {
       setUser(await getMe());
-    } catch {
+    } catch (error) {
       setUser(null);
+      setSchemaMissing(error?.code === 'PGRST205');
     } finally {
       setLoading(false);
     }
@@ -51,8 +53,8 @@ export function UserProvider({ children }) {
   );
 
   const value = useMemo(
-    () => ({ user, loading, currency, symbol, format, save, reload: load }),
-    [user, loading, currency, symbol, format, save, load]
+    () => ({ user, loading, schemaMissing, currency, symbol, format, save, reload: load }),
+    [user, loading, schemaMissing, currency, symbol, format, save, load]
   );
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;

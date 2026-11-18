@@ -32,6 +32,7 @@ const typeRing = {
 export default function OmniInput({ onSaved }) {
   const [type, setType] = useState('Expense');
   const [status, setStatus] = useState(null); // 'saving' | 'saved' | 'error'
+  const [errorMessage, setErrorMessage] = useState('');
   const { suggestions, remember } = useRecentCategories();
   const { symbol: currency } = useUser();
 
@@ -63,6 +64,7 @@ export default function OmniInput({ onSaved }) {
 
   const onSubmit = async (data) => {
     setStatus('saving');
+    setErrorMessage('');
     try {
       const payload = {
         type,
@@ -80,6 +82,9 @@ export default function OmniInput({ onSaved }) {
       onSaved?.();
       setTimeout(() => setStatus(null), 1600);
     } catch (err) {
+      setErrorMessage(err?.code === 'PGRST205'
+        ? 'Run supabase/schema.sql in your Supabase SQL Editor, then refresh this page.'
+        : err?.message || 'Check your Supabase settings and try again.');
       setStatus('error');
     }
   };
@@ -271,7 +276,7 @@ export default function OmniInput({ onSaved }) {
               exit={{ opacity: 0 }}
               className="text-center text-sm text-accent-expense"
             >
-              Couldn’t save — is the API running?
+              Couldn’t save — {errorMessage}
             </motion.p>
           )}
         </AnimatePresence>

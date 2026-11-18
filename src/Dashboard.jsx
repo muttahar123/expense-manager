@@ -54,7 +54,7 @@ function UserMenu() {
 }
 
 export default function Dashboard() {
-  const { format, loading: userLoading } = useUser();
+  const { format, loading: userLoading, schemaMissing } = useUser();
   const [insights, setInsights] = useState(null);
   const [recent, setRecent] = useState([]);
   const [portfolio, setPortfolio] = useState(null);
@@ -89,6 +89,12 @@ export default function Dashboard() {
     <div className="min-h-full">
       {/* Header */}
       <header className="px-5 pt-8 pb-4 max-w-6xl mx-auto">
+        {schemaMissing && (
+          <div role="alert" className="mb-5 rounded-xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-100">
+            <p className="font-semibold">Supabase database tables are not set up yet.</p>
+            <p className="mt-1 text-amber-100/80">In your Supabase project, open SQL Editor, run the complete <code>supabase/schema.sql</code> file from this project, then refresh this page. No extra server is needed.</p>
+          </div>
+        )}
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}

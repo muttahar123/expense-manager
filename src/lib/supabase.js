@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
-// These are injected at build time from the single root `.env`
-// (SUPABASE_URL / SUPABASE_ANON_KEY) — see client/vite.config.js.
+// These are injected at build time from the root `.env`
+// (SUPABASE_URL / SUPABASE_PUBLISHABLE_KEY or SUPABASE_ANON_KEY).
 const url = import.meta.env.VITE_SUPABASE_URL;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 

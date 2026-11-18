@@ -153,3 +153,6 @@ create policy "investments owner all" on public.investments
 drop policy if exists "transactions owner all" on public.transactions;
 create policy "transactions owner all" on public.transactions
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Make the new tables visible to the Supabase REST API immediately.
+notify pgrst, 'reload schema';
