@@ -2,30 +2,24 @@ import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import OmniInput from './components/OmniInput.jsx';
 import InsightsPanel from './components/InsightsPanel.jsx';
-import CashflowSankey from './components/CashflowSankey.jsx';
+import CashflowBreakdown from './components/CashflowBreakdown.jsx';
 import InvestmentDashboard from './components/InvestmentDashboard.jsx';
 import { getInsights, listTransactions, listInvestments } from './lib/api.js';
 import { useUser } from './context/UserContext.jsx';
 import { useAuth } from './context/AuthContext.jsx';
 import { CURRENCY_SYMBOLS } from './constants/finance.js';
 
-const typeDot = { Income: 'bg-accent-income', Expense: 'bg-accent-expense', Investment: 'bg-accent-invest' };
+const typeDot = { Income: 'bg-green-400', Expense: 'bg-white/50', Investment: 'bg-emerald-200' };
 
 function CurrencySwitcher() {
   const { currency, save } = useUser();
   return (
-    <select
-      value={currency}
-      onChange={(e) => save({ baseCurrency: e.target.value })}
-      className="rounded-lg bg-ink-800 border border-white/10 px-2.5 py-1.5 text-sm outline-none focus:ring-2 focus:ring-brand-500/40"
-      title="Base currency"
-    >
-      {Object.keys(CURRENCY_SYMBOLS).map((c) => (
-        <option key={c} value={c}>
-          {c} {CURRENCY_SYMBOLS[c]}
-        </option>
-      ))}
-    </select>
+    <label className="glass-control flex items-center gap-2 rounded-full px-3 py-2">
+      <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Currency</span>
+      <select value={currency} onChange={(e) => save({ baseCurrency: e.target.value })} className="max-w-[4.5rem] bg-transparent text-xs font-semibold text-white outline-none" title="Base currency">
+        {Object.keys(CURRENCY_SYMBOLS).map((code) => <option key={code} value={code} className="bg-ink-900">{code}</option>)}
+      </select>
+    </label>
   );
 }
 
@@ -34,21 +28,21 @@ function UserMenu() {
   const email = user?.email;
   const avatar = user?.user_metadata?.avatar_url;
   return (
-    <div className="flex items-center gap-2">
-      {avatar ? (
-        <img src={avatar} alt="" className="h-8 w-8 rounded-full border border-white/10" />
-      ) : (
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-500/20 text-sm font-bold text-brand-400">
-          {(email || '?').charAt(0).toUpperCase()}
-        </div>
+    <div className="glass-control flex items-center gap-2 rounded-full p-1.5 pr-2">
+      {avatar ? <img src={avatar} alt="" className="h-8 w-8 rounded-full border border-white/15" /> : (
+        <div className="flex h-8 w-8 items-center justify-center rounded-full border border-green-300/20 bg-green-300/10 text-xs font-bold text-green-200">{(email || '?').charAt(0).toUpperCase()}</div>
       )}
-      <button
-        onClick={signOut}
-        className="rounded-lg bg-ink-800 border border-white/10 px-2.5 py-1.5 text-sm text-slate-300 hover:text-white hover:border-white/20 transition"
-        title={email ? `Signed in as ${email}` : 'Sign out'}
-      >
-        Sign out
-      </button>
+      <button onClick={signOut} className="px-2 text-xs font-medium text-slate-300 transition hover:text-white" title={email ? `Signed in as ${email}` : 'Sign out'}>Sign out</button>
+    </div>
+  );
+}
+
+function SectionTitle({ eyebrow, title, detail }) {
+  return (
+    <div className="mb-5">
+      {eyebrow && <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-green-300/80">{eyebrow}</p>}
+      <h2 className="text-base font-semibold tracking-tight text-white sm:text-lg">{title}</h2>
+      {detail && <p className="mt-1 text-xs leading-5 text-slate-400">{detail}</p>}
     </div>
   );
 }
@@ -63,14 +57,12 @@ export default function Dashboard() {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const [ins, txs, inv] = await Promise.all([
-        getInsights(),
-        listTransactions({ limit: 6 }),
-        listInvestments(),
+      const [nextInsights, transactions, investments] = await Promise.all([
+        getInsights(), listTransactions({ limit: 6 }), listInvestments(),
       ]);
-      setInsights(ins);
-      setRecent(txs);
-      setPortfolio(inv);
+      setInsights(nextInsights);
+      setRecent(transactions);
+      setPortfolio(investments);
     } catch {
       setInsights(null);
     } finally {
@@ -78,107 +70,108 @@ export default function Dashboard() {
     }
   }, []);
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  useEffect(() => { refresh(); }, [refresh]);
 
   const totals = insights?.cashflow?.summary?.totals;
   const cashflowSummary = insights?.cashflow?.summary;
+  const stats = [
+    { label: 'Income', value: totals?.income || 0, note: 'Money received', marker: 'bg-green-300' },
+    { label: 'Spent', value: totals?.expense || 0, note: 'Everyday outflow', marker: 'bg-white/60' },
+    { label: 'Invested', value: totals?.investment || 0, note: 'Added to portfolio', marker: 'bg-emerald-500' },
+  ];
 
   return (
-    <div className="min-h-full">
-      {/* Header */}
-      <header className="px-5 pt-8 pb-4 max-w-6xl mx-auto">
-        {schemaMissing && (
-          <div role="alert" className="mb-5 rounded-xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-100">
-            <p className="font-semibold">Supabase database tables are not set up yet.</p>
-            <p className="mt-1 text-amber-100/80">In your Supabase project, open SQL Editor, run the complete <code>supabase/schema.sql</code> file from this project, then refresh this page. No extra server is needed.</p>
+    <div className="app-shell relative min-h-screen overflow-hidden px-4 pb-12 sm:px-6 lg:px-8">
+      <div className="ambient-orb ambient-orb-one" />
+      <div className="ambient-orb ambient-orb-two" />
+      <div className="relative mx-auto max-w-7xl">
+        <header className="flex flex-col gap-5 py-6 sm:py-8 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="brand-mark flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-green-100">
+              <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" aria-hidden="true"><path d="M4 16.5 9 11l3.3 3.3L20 6.5M14.5 6.5H20v5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-green-200/75">Personal finance</p>
+              <h1 className="text-lg font-semibold tracking-tight text-white sm:text-xl">Wealth <span className="text-slate-500">/</span> Expenses</h1>
+            </div>
           </div>
-        )}
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-start justify-between gap-4"
-        >
-          <div>
-            <p className="text-sm text-slate-400">Personal</p>
-            <h1 className="text-2xl font-extrabold tracking-tight">
-              Wealth & Expense <span className="text-brand-400">Manager</span>
-            </h1>
-          </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
             <CurrencySwitcher />
             <UserMenu />
           </div>
-        </motion.div>
+        </header>
 
-        {totals && (
-          <div className="mt-5 grid grid-cols-3 gap-3">
-            {[
-              { label: 'Income', val: totals.income, cls: 'text-accent-income' },
-              { label: 'Spent', val: totals.expense, cls: 'text-accent-expense' },
-              { label: 'Invested', val: totals.investment, cls: 'text-accent-invest' },
-            ].map((s) => (
-              <div key={s.label} className="rounded-xl2 bg-ink-800/70 border border-white/5 p-3">
-                <p className="text-xs text-slate-400">{s.label}</p>
-                <p className={`text-lg font-bold ${s.cls}`}>{format(s.val, { compact: true })}</p>
-              </div>
-            ))}
+        {schemaMissing && (
+          <div role="alert" className="glass-panel mb-5 border-green-300/20 p-4 text-sm text-green-50">
+            <p className="font-semibold">Finish connecting your Supabase database</p>
+            <p className="mt-1 text-green-50/70">Run the full <code>supabase/schema.sql</code> file in your Supabase SQL Editor, then refresh. No extra server is needed.</p>
           </div>
         )}
-      </header>
 
-      {/* Body */}
-      <main className="px-5 pb-16 max-w-6xl mx-auto grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
-        <div className="order-2 lg:order-1 space-y-6">
-          {/* Sankey cashflow */}
-          <section className="rounded-xl2 bg-ink-800/50 border border-white/5 p-5">
-            <h3 className="text-sm font-bold text-slate-300 mb-1">Cashflow — where your money goes</h3>
-            <CashflowSankey summary={cashflowSummary} />
-          </section>
+        <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-6 flex flex-col gap-2 sm:mb-8 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-sm text-slate-400">A little more clarity, every day.</p>
+            <h2 className="mt-1 text-2xl font-semibold tracking-tight text-white sm:text-3xl">Your money at a glance<span className="text-green-300">.</span></h2>
+          </div>
+          <p className="text-xs text-slate-500">A live overview of your recorded finances</p>
+        </motion.section>
 
-          {/* Investment & PnL dashboard */}
-          <section className="rounded-xl2 bg-ink-800/50 border border-white/5 p-5">
-            <h3 className="text-sm font-bold text-slate-300 mb-3">Investments &amp; PnL</h3>
-            <InvestmentDashboard data={portfolio} onRefresh={refresh} />
-          </section>
+        <section className="mb-6 grid gap-3 sm:grid-cols-3">
+          {stats.map((stat, i) => (
+            <motion.article key={stat.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="glass-panel stat-card p-4 sm:p-5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-400">{stat.label}</span>
+                <span className={`h-2 w-2 rounded-full ${stat.marker} shadow-[0_0_12px_rgba(134,239,172,0.5)]`} />
+              </div>
+              <p className="mt-3 text-2xl font-semibold tracking-tight text-white sm:text-3xl">{loading && !totals ? '—' : format(stat.value, { compact: true })}</p>
+              <p className="mt-1 text-[11px] text-slate-500">{stat.note}</p>
+            </motion.article>
+          ))}
+        </section>
 
-          {/* Smart Agent */}
-          <section className="rounded-xl2 bg-ink-800/50 border border-white/5 p-5">
-            <InsightsPanel data={insights} loading={loading || userLoading} />
-          </section>
+        <main className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-6">
+          <div className="order-2 space-y-5 lg:order-1 lg:space-y-6">
+            <section className="glass-panel p-4 sm:p-6">
+              <SectionTitle eyebrow="Cashflow" title="Where your income goes" detail="A simple breakdown of what came in and how you’ve allocated it." />
+              <CashflowBreakdown summary={cashflowSummary} />
+            </section>
 
-          {/* Recent activity */}
-          <section className="rounded-xl2 bg-ink-800/50 border border-white/5 p-5">
-            <h3 className="text-sm font-bold text-slate-300 mb-3">Recent activity</h3>
-            {recent.length === 0 ? (
-              <p className="text-sm text-slate-500">Nothing yet — add your first entry →</p>
-            ) : (
-              <ul className="divide-y divide-white/5">
-                {recent.map((t) => (
-                  <li key={t.id} className="flex items-center justify-between py-2.5">
-                    <div className="flex items-center gap-3">
-                      <span className={`h-2 w-2 rounded-full ${typeDot[t.type]}`} />
-                      <div>
-                        <p className="text-sm font-medium">{t.category}</p>
-                        <p className="text-xs text-slate-500">
-                          {new Date(t.date).toLocaleDateString()} · {t.bucket}
-                        </p>
+            <section className="glass-panel p-4 sm:p-6">
+              <SectionTitle eyebrow="Portfolio" title="Investments & performance" detail="See what you invested, its current value, and the difference." />
+              <InvestmentDashboard data={portfolio} onRefresh={refresh} />
+            </section>
+
+            <section className="glass-panel p-4 sm:p-6">
+              <InsightsPanel data={insights} loading={loading || userLoading} />
+            </section>
+
+            <section className="glass-panel p-4 sm:p-6">
+              <SectionTitle eyebrow="Latest entries" title="Recent activity" />
+              {recent.length === 0 ? <p className="rounded-2xl border border-white/[0.06] bg-black/20 px-4 py-6 text-center text-sm text-slate-400">Nothing here yet. Add your first entry above.</p> : (
+                <ul className="divide-y divide-white/[0.07]">
+                  {recent.map((transaction) => (
+                    <li key={transaction.id} className="flex min-w-0 items-center justify-between gap-3 py-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${typeDot[transaction.type] || 'bg-white/50'}`} />
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-white">{transaction.category}</p>
+                          <p className="mt-0.5 text-[11px] text-slate-500">{new Date(transaction.date).toLocaleDateString()} · {transaction.bucket}</p>
+                        </div>
                       </div>
-                    </div>
-                    <span className="text-sm font-semibold">{format(t.amount, { compact: true })}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        </div>
+                      <span className="shrink-0 text-sm font-semibold tabular-nums text-slate-200">{format(transaction.amount, { compact: true })}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </div>
 
-        {/* Omni-Input */}
-        <div className="order-1 lg:order-2 lg:sticky lg:top-6 h-fit flex justify-center">
-          <OmniInput onSaved={refresh} />
-        </div>
-      </main>
+          <aside className="order-1 lg:order-2 lg:sticky lg:top-5">
+            <OmniInput onSaved={refresh} />
+          </aside>
+        </main>
+        <footer className="pt-8 text-center text-[10px] tracking-wide text-slate-600">PRIVATE BY DESIGN · POWERED BY SUPABASE</footer>
+      </div>
     </div>
   );
 }

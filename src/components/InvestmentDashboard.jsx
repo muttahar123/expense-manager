@@ -9,22 +9,21 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  LabelList,
   ReferenceLine,
 } from 'recharts';
 import { useUser } from '../context/UserContext.jsx';
 import { updateInvestment } from '../lib/api.js';
 
 // Status colors (good / critical) — reserved, paired with +/- sign & labels.
-const GAIN = '#22c55e';
-const LOSS = '#f87171';
+const GAIN = '#4ade80';
+const LOSS = '#d3ddd6';
 const signColor = (n) => (n >= 0 ? GAIN : LOSS);
 
 function StatTile({ label, value, sub, tone }) {
   return (
-    <div className="rounded-xl2 bg-ink-800/70 border border-white/5 p-4">
-      <p className="text-xs text-slate-400">{label}</p>
-      <p className={`mt-1 text-xl font-extrabold ${tone || 'text-slate-100'}`}>{value}</p>
+    <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3 sm:p-4">
+      <p className="text-[11px] text-slate-400">{label}</p>
+      <p className={`mt-1 text-lg font-semibold tabular-nums sm:text-xl ${tone || 'text-slate-100'}`}>{value}</p>
       {sub && <p className="mt-0.5 text-xs text-slate-500">{sub}</p>}
     </div>
   );
@@ -138,9 +137,12 @@ export default function InvestmentDashboard({ data, onRefresh }) {
 
       {/* PnL by asset class */}
       <div>
-        <div className="mb-2 flex items-center justify-between">
-          <h4 className="text-sm font-bold text-slate-300">Profit / Loss by asset class</h4>
-          <div className="flex items-center gap-3 text-xs text-slate-400">
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h4 className="text-sm font-semibold text-white">Gain or loss by investment type</h4>
+            <p className="mt-1 text-[11px] leading-5 text-slate-500">Green means the value went up. White means it went down. Longer bars show a larger change.</p>
+          </div>
+          <div className="flex items-center gap-3 text-[11px] text-slate-400">
             <span className="flex items-center gap-1">
               <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: GAIN }} />Profit
             </span>
@@ -149,29 +151,23 @@ export default function InvestmentDashboard({ data, onRefresh }) {
             </span>
           </div>
         </div>
-        <div className="h-56 w-full">
+        <div className="w-full" style={{ height: `${Math.max(190, chartData.length * 42)}px` }}>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 18, right: 8, bottom: 4, left: 8 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-              <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} width={44}
+            <BarChart data={chartData} layout="vertical" margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false} />
+              <XAxis type="number" tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false}
                 tickFormatter={(v) => format(v, { compact: true })} />
-              <ReferenceLine y={0} stroke="rgba(255,255,255,0.2)" />
+              <YAxis type="category" dataKey="name" tick={{ fill: '#cbd5d1', fontSize: 11 }} axisLine={false} tickLine={false} width={82} />
+              <ReferenceLine x={0} stroke="rgba(255,255,255,0.35)" />
               <Tooltip
                 cursor={{ fill: 'rgba(255,255,255,0.04)' }}
                 contentStyle={{ background: '#0b0f17', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, fontSize: 12 }}
                 formatter={(value, _n, p) => [`${format(value)} (${p.payload.roi}%)`, 'PnL']}
               />
-              <Bar dataKey="pnl" radius={[4, 4, 0, 0]} maxBarSize={56}>
+              <Bar dataKey="pnl" radius={[0, 6, 6, 0]} maxBarSize={24}>
                 {chartData.map((d) => (
                   <Cell key={d.name} fill={signColor(d.pnl)} />
                 ))}
-                <LabelList
-                  dataKey="roi"
-                  position="top"
-                  formatter={(v) => `${v >= 0 ? '+' : ''}${v}%`}
-                  style={{ fill: '#e2e8f0', fontSize: 11, fontWeight: 600 }}
-                />
               </Bar>
             </BarChart>
           </ResponsiveContainer>

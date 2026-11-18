@@ -6,10 +6,10 @@ export default {
     extend: {
       colors: {
         ink: {
-          900: '#0b0f17',
-          800: '#121826',
-          700: '#1b2334',
-          600: '#273146',
+          900: '#050806',
+          800: '#0c110e',
+          700: '#151d18',
+          600: '#202a23',
         },
         brand: {
           400: '#4ade80',
@@ -17,9 +17,9 @@ export default {
           600: '#16a34a',
         },
         accent: {
-          expense: '#f87171',
-          income: '#34d399',
-          invest: '#60a5fa',
+          expense: '#d3ddd6',
+          income: '#4ade80',
+          invest: '#a7f3d0',
         },
       },
       borderRadius: {

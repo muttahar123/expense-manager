@@ -31,27 +31,29 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-full flex items-center justify-center px-5">
+    <div className="app-shell relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-8 sm:px-6">
+      <div className="ambient-orb ambient-orb-one" />
+      <div className="ambient-orb ambient-orb-two" />
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: 'easeOut' }}
-        className="w-full max-w-sm rounded-xl2 bg-ink-800/80 backdrop-blur border border-white/5 shadow-glow p-8 text-center"
+        className="glass-panel relative z-10 w-full max-w-sm p-6 text-center sm:p-8"
       >
-        <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-500/15 text-3xl">
-          💰
+        <div className="brand-mark mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl text-3xl text-green-100">
+          ↗
         </div>
         <h1 className="text-2xl font-extrabold tracking-tight">
-          Wealth &amp; Expense <span className="text-brand-400">Manager</span>
+          Wealth <span className="text-slate-500">/</span> Expense <span className="text-green-300">Manager</span>
         </h1>
         <p className="mt-2 text-sm text-slate-400">
           Sign in to track your income, expenses and investments — your data stays private to you.
         </p>
 
         {!isSupabaseConfigured ? (
-          <div className="mt-6 rounded-xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-left text-sm text-amber-200">
-            <p className="font-semibold">Setup needed</p>
-            <p className="mt-1 text-amber-200/80">
+          <div className="mt-6 rounded-xl border border-green-300/20 bg-green-300/[0.06] px-4 py-3 text-left text-sm text-green-100">
+              <p className="font-semibold text-green-100">Setup needed</p>
+              <p className="mt-1 text-slate-300">
               Add your Supabase keys to the root <code>.env</code> file (copy from{' '}
               <code>.env.example</code>) and reload.
             </p>
@@ -62,16 +64,16 @@ export default function Login() {
               whileTap={{ scale: 0.97 }}
               onClick={onClick}
               disabled={busy}
-              className="mt-7 w-full flex items-center justify-center gap-3 rounded-2xl bg-white px-4 py-3.5 text-base font-semibold text-slate-800 hover:bg-slate-100 disabled:opacity-60 transition"
+              className="mt-7 w-full flex items-center justify-center gap-3 rounded-2xl bg-white px-4 py-3.5 text-base font-semibold text-slate-900 shadow-[0_8px_30px_rgba(255,255,255,0.08)] transition hover:bg-green-50 disabled:opacity-60"
             >
               <GoogleIcon />
               {busy ? 'Redirecting…' : 'Continue with Google'}
             </motion.button>
-            {error && <p className="mt-3 text-sm text-accent-expense">{error}</p>}
+            {error && <p className="mt-3 text-sm text-slate-200">{error}</p>}
           </>
         )}
 
-        <p className="mt-6 text-xs text-slate-600">Secured by Supabase Auth</p>
+        <p className="mt-6 text-[10px] uppercase tracking-[0.16em] text-slate-500">Secured by Supabase Auth</p>
       </motion.div>
     </div>
   );

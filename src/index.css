@@ -4,25 +4,160 @@
 
 :root {
   color-scheme: dark;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 html,
 body,
 #root {
-  height: 100%;
+  min-height: 100%;
 }
 
 body {
   @apply bg-ink-900 text-slate-100 antialiased;
   margin: 0;
+  min-width: 320px;
+  background-color: #050806;
+  font-feature-settings: 'ss01' on, 'cv11' on;
 }
 
-/* Hide number input spinners for a cleaner money field */
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.app-shell {
+  background:
+    radial-gradient(ellipse at 14% 0%, rgba(34, 197, 94, 0.12), transparent 38rem),
+    radial-gradient(ellipse at 100% 28%, rgba(74, 222, 128, 0.07), transparent 32rem),
+    linear-gradient(180deg, #070b08 0%, #050706 48%, #060907 100%);
+}
+
+.ambient-orb {
+  position: absolute;
+  z-index: 0;
+  width: 22rem;
+  height: 22rem;
+  border-radius: 9999px;
+  background: rgba(34, 197, 94, 0.12);
+  filter: blur(100px);
+  opacity: 0.52;
+  pointer-events: none;
+}
+
+.ambient-orb-one {
+  top: 16rem;
+  left: -16rem;
+}
+
+.ambient-orb-two {
+  top: 50rem;
+  right: -17rem;
+  width: 28rem;
+  height: 28rem;
+  background: rgba(74, 222, 128, 0.08);
+}
+
+.glass-panel {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.085);
+  border-radius: 1.35rem;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.065), rgba(255, 255, 255, 0.018) 48%, rgba(112, 255, 160, 0.018)),
+    rgba(12, 17, 14, 0.76);
+  box-shadow:
+    0 24px 70px rgba(0,  0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.015);
+  -webkit-backdrop-filter: blur(24px) saturate(145%);
+  backdrop-filter: blur(24px) saturate(145%);
+}
+
+.glass-panel::before {
+  position: absolute;
+  top: 0;
+  left: 8%;
+  width: 44%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+  content: '';
+  pointer-events: none;
+}
+
+.glass-control {
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.045);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+
+.brand-mark {
+  border: 1px solid rgba(134, 239, 172, 0.25);
+  background: linear-gradient(145deg, rgba(74, 222, 128, 0.24), rgba(34, 197, 94, 0.07));
+  box-shadow: 0 8px 30px rgba(34, 197, 94, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.stat-card {
+  transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(134, 239, 172, 0.2);
+}
+
+input,
+select,
+textarea {
+  color-scheme: dark;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: rgb(100 116 109);
+}
+
+*:focus-visible {
+  outline: 2px solid rgba(134, 239, 172, 0.8);
+  outline-offset: 2px;
+}
+
+/* Hide number input spinners for a cleaner money field. */
 input[type='number']::-webkit-outer-spin-button,
 input[type='number']::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
+
 input[type='number'] {
   -moz-appearance: textfield;
+}
+
+@media (max-width: 640px) {
+  .glass-panel {
+    border-radius: 1.15rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

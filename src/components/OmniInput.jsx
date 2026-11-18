@@ -13,7 +13,7 @@ import { createTransaction } from '../lib/api.js';
 import { useUser } from '../context/UserContext.jsx';
 
 const typeAccent = {
-  Expense: 'bg-accent-expense',
+  Expense: 'bg-white',
   Income: 'bg-accent-income',
   Investment: 'bg-accent-invest',
 };
@@ -94,11 +94,14 @@ export default function OmniInput({ onSaved }) {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: 'easeOut' }}
-      className="w-full max-w-md rounded-xl2 bg-ink-800/80 backdrop-blur border border-white/5 shadow-glow p-5 sm:p-6"
+      className="glass-panel w-full max-w-md p-5 sm:p-6"
     >
       <div className="mb-5 flex items-center justify-between">
-        <h2 className="text-lg font-bold tracking-tight">Quick Add</h2>
-        <span className="text-xs text-slate-400">One-tab entry</span>
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-green-300/80">Quick entry</p>
+          <h2 className="mt-1 text-lg font-semibold tracking-tight text-white">Add a transaction</h2>
+        </div>
+        <span className="flex h-9 w-9 items-center justify-center rounded-full border border-green-300/15 bg-green-300/[0.07] text-lg text-green-200">＋</span>
       </div>
 
       {/* Segmented control */}
