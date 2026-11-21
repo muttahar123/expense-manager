@@ -52,7 +52,7 @@ function HoldingRow({ inv, format, onUpdated }) {
       <div className="min-w-0">
         <p className="truncate text-sm font-semibold">{inv.assetName}</p>
         <p className="text-xs text-slate-500">
-          {inv.assetType} · invested {format(inv.investedAmount, { compact: true })}
+          {inv.assetType} · invested {format(inv.investedAmount)}
         </p>
       </div>
 
@@ -75,11 +75,11 @@ function HoldingRow({ inv, format, onUpdated }) {
           </div>
         ) : (
           <div className="text-right">
-            <p className="text-sm font-semibold">{format(inv.currentValue, { compact: true })}</p>
+            <p className="text-sm font-semibold">{format(inv.currentValue)}</p>
             <p className="text-xs font-medium" style={{ color: signColor(inv.pnl) }}>
               {up ? '▲' : '▼'} {up ? '+' : ''}
               {inv.roi}% ({up ? '+' : ''}
-              {format(inv.pnl, { compact: true })})
+              {format(inv.pnl)})
             </p>
           </div>
         )}
@@ -120,11 +120,11 @@ export default function InvestmentDashboard({ data, onRefresh }) {
     <div className="space-y-5">
       {/* Portfolio rollup */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatTile label="Invested" value={format(summary.invested, { compact: true })} />
-        <StatTile label="Current value" value={format(summary.current, { compact: true })} />
+        <StatTile label="Invested" value={format(summary.invested)} />
+        <StatTile label="Current + returns" value={format(summary.current)} />
         <StatTile
           label="Total PnL"
-          value={`${summary.pnl >= 0 ? '+' : ''}${format(summary.pnl, { compact: true })}`}
+          value={`${summary.pnl >= 0 ? '+' : ''}${format(summary.pnl)}`}
           tone={gainTone}
         />
         <StatTile
@@ -156,7 +156,7 @@ export default function InvestmentDashboard({ data, onRefresh }) {
             <BarChart data={chartData} layout="vertical" margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false} />
               <XAxis type="number" tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false}
-                tickFormatter={(v) => format(v, { compact: true })} />
+                tickFormatter={(v) => format(v)} />
               <YAxis type="category" dataKey="name" tick={{ fill: '#cbd5d1', fontSize: 11 }} axisLine={false} tickLine={false} width={82} />
               <ReferenceLine x={0} stroke="rgba(255,255,255,0.35)" />
               <Tooltip

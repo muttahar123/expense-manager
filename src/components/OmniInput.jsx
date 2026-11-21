@@ -9,19 +9,21 @@ import {
   todayISO,
 } from '../constants/finance.js';
 import useRecentCategories from '../hooks/useRecentCategories.js';
-import { createTransaction } from '../lib/api.js';
+import { createTransaction, createInvestmentReturn } from '../lib/api.js';
 import { useUser } from '../context/UserContext.jsx';
 
 const typeAccent = {
   Expense: 'bg-white',
   Income: 'bg-accent-income',
   Investment: 'bg-accent-invest',
+  Return: 'bg-accent-income',
 };
 
 const typeRing = {
   Expense: 'focus:ring-accent-expense/50',
   Income: 'focus:ring-accent-income/50',
   Investment: 'focus:ring-accent-invest/50',
+  Return: 'focus:ring-accent-income/50',
 };
 
 /**
@@ -29,7 +31,7 @@ const typeRing = {
  * Income/Salary, or Investment with 1–2 clicks. Smart defaults (today's date,
  * recent-category chips) minimize friction.
  */
-export default function OmniInput({ onSaved }) {
+export default function OmniInput({ onSaved, investments = [] }) {
   const [type, setType] = useState('Expense');
   const [status, setStatus] = useState(null); // 'saving' | 'saved' | 'error'
   const [errorMessage, setErrorMessage] = useState('');
@@ -44,13 +46,14 @@ export default function OmniInput({ onSaved }) {
     watch,
     formState: { errors, isSubmitting },
   } = useForm({
-    defaultValues: { amount: '', category: '', date: todayISO(), notes: '', assetType: 'Stocks' },
+    defaultValues: { amount: '', category: '', date: todayISO(), notes: '', assetType: 'Stocks', investmentId: '', sale: false },
   });
 
   const categoryValue = watch('category');
 
   const categoryOptions = useMemo(() => {
     if (type === 'Income') return INCOME_CATEGORIES;
+    if (type === 'Return') return [];
     if (type === 'Investment') return ASSET_TYPES;
     return EXPENSE_CATEGORIES;
   }, [type]);
@@ -73,16 +76,22 @@ export default function OmniInput({ onSaved }) {
         date: data.date,
         notes: data.notes,
       };
-      if (type === 'Investment') payload.assetType = data.assetType;
-
-      await createTransaction(payload);
+      if (type === 'Return') {
+        await createInvestmentReturn({ ...payload, investmentId: data.investmentId, sale: data.sale });
+      } else {
+        if (type === 'Investment') payload.assetType = data.assetType;
+        await createTransaction(payload);
+      }
       remember(type, data.category);
       setStatus('saved');
-      reset({ amount: '', category: data.category, date: todayISO(), notes: '', assetType: data.assetType });
+      reset({ amount: '', category: data.category, date: todayISO(), notes: '', assetType: data.assetType, investmentId: '', sale: false });
       onSaved?.();
       setTimeout(() => setStatus(null), 1600);
     } catch (err) {
-      setErrorMessage(err?.code === 'PGRST205'
+      const missingRealizedColumn = /realized_value.*schema cache|schema cache.*realized_value/i.test(err?.message || '');
+      setErrorMessage(missingRealizedColumn
+        ? "Your database needs the investment-return update. In Supabase SQL Editor, run: ALTER TABLE public.investments ADD COLUMN IF NOT EXISTS realized_value numeric NOT NULL DEFAULT 0 CHECK (realized_value >= 0); then run NOTIFY pgrst, 'reload schema'; and retry."
+        : err?.code === 'PGRST205'
         ? 'Run supabase/schema.sql in your Supabase SQL Editor, then refresh this page.'
         : err?.message || 'Check your Supabase settings and try again.');
       setStatus('error');
@@ -106,7 +115,7 @@ export default function OmniInput({ onSaved }) {
 
       {/* Segmented control */}
       <LayoutGroup>
-        <div className="relative grid grid-cols-3 gap-1 rounded-2xl bg-ink-900 p-1 mb-6">
+        <div className="relative grid grid-cols-4 gap-1 rounded-2xl bg-ink-900 p-1 mb-6">
           {TX_TYPES.map((t) => {
             const active = type === t.key;
             return (
@@ -159,10 +168,15 @@ export default function OmniInput({ onSaved }) {
         {/* Category / Asset */}
         <div>
           <label className="block text-xs font-medium text-slate-400 mb-1.5">
-            {type === 'Investment' ? 'Asset name' : 'Category'}
+            {type === 'Investment' ? 'Asset name' : type === 'Return' ? 'Return amount' : 'Category'}
           </label>
 
-          {type === 'Investment' ? (
+          {type === 'Return' ? (
+            <select {...register('investmentId', { required: 'Choose an investment' })} className="w-full rounded-2xl bg-ink-900 border border-white/10 px-4 py-3 text-white outline-none">
+              <option value="">Choose investment…</option>
+              {investments.filter((item) => item.status === 'Active').map((item) => <option key={item.id} value={item.id}>{item.assetName} · {item.assetType}</option>)}
+            </select>
+          ) : type === 'Investment' ? (
             <input
               type="text"
               placeholder="e.g. Apple, Bitcoin, My Cafe"
@@ -178,6 +192,7 @@ export default function OmniInput({ onSaved }) {
               className={`w-full rounded-2xl bg-ink-900 border border-white/10 px-4 py-3 outline-none focus:ring-2 ${typeRing[type]} transition`}
             />
           )}
+          {errors.investmentId && <p className="mt-1 text-xs text-accent-expense">{errors.investmentId.message}</p>}
           <datalist id="omni-categories">
             {categoryOptions.map((c) => (
               <option key={c} value={c} />
@@ -212,6 +227,13 @@ export default function OmniInput({ onSaved }) {
             )}
           </AnimatePresence>
         </div>
+
+        {type === 'Return' && (
+          <label className="flex items-start gap-2 text-xs leading-5 text-slate-300">
+            <input type="checkbox" {...register('sale')} className="mt-1 accent-green-400" />
+            This is a sale/withdrawal (reduce the holding’s current value). Leave unchecked for dividends or profit payouts.
+          </label>
+        )}
 
         {/* Asset type (Investment only) */}
         <AnimatePresence initial={false}>
@@ -268,7 +290,7 @@ export default function OmniInput({ onSaved }) {
             ? 'Saving…'
             : status === 'saved'
             ? '✓ Saved'
-            : `Add ${type}`}
+            : type === 'Return' ? 'Add investment return to income' : `Add ${type}`}
         </motion.button>
 
         <AnimatePresence>

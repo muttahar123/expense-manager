@@ -11,6 +11,13 @@ import { CURRENCY_SYMBOLS } from './constants/finance.js';
 
 const typeDot = { Income: 'bg-green-400', Expense: 'bg-white/50', Investment: 'bg-emerald-200' };
 
+function thisMonthRange() {
+  const now = new Date();
+  const from = new Date(now.getFullYear(), now.getMonth(), 1);
+  const to = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+  return { from: from.toISOString(), to: to.toISOString() };
+}
+
 function CurrencySwitcher() {
   const { currency, save } = useUser();
   return (
@@ -58,7 +65,7 @@ export default function Dashboard() {
     setLoading(true);
     try {
       const [nextInsights, transactions, investments] = await Promise.all([
-        getInsights(), listTransactions({ limit: 6 }), listInvestments(),
+        getInsights(thisMonthRange()), listTransactions({ limit: 6 }), listInvestments(),
       ]);
       setInsights(nextInsights);
       setRecent(transactions);
@@ -75,9 +82,10 @@ export default function Dashboard() {
   const totals = insights?.cashflow?.summary?.totals;
   const cashflowSummary = insights?.cashflow?.summary;
   const stats = [
-    { label: 'Income', value: totals?.income || 0, note: 'Money received', marker: 'bg-green-300' },
-    { label: 'Spent', value: totals?.expense || 0, note: 'Everyday outflow', marker: 'bg-white/60' },
-    { label: 'Invested', value: totals?.investment || 0, note: 'Added to portfolio', marker: 'bg-emerald-500' },
+    { label: 'Income this month', value: totals?.income || 0, note: 'Including investment returns', marker: 'bg-green-300' },
+    { label: 'Everyday spending', value: totals?.expense || 0, note: 'Your recorded expenses', marker: 'bg-white/60' },
+    { label: 'Invested this month', value: totals?.investment || 0, note: 'Moved into investments', marker: 'bg-emerald-500' },
+    { label: 'Available this month', value: totals?.available || 0, note: 'Income − spending − investments', marker: 'bg-sky-300' },
   ];
 
   return (
@@ -111,19 +119,19 @@ export default function Dashboard() {
         <motion.section initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-6 flex flex-col gap-2 sm:mb-8 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-sm text-slate-400">A little more clarity, every day.</p>
-            <h2 className="mt-1 text-2xl font-semibold tracking-tight text-white sm:text-3xl">Your money at a glance<span className="text-green-300">.</span></h2>
+            <h2 className="mt-1 text-2xl font-semibold tracking-tight text-white sm:text-3xl">Your money this month<span className="text-green-300">.</span></h2>
           </div>
           <p className="text-xs text-slate-500">A live overview of your recorded finances</p>
         </motion.section>
 
-        <section className="mb-6 grid gap-3 sm:grid-cols-3">
+        <section className="mb-6 grid grid-cols-2 gap-3 xl:grid-cols-4">
           {stats.map((stat, i) => (
             <motion.article key={stat.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="glass-panel stat-card p-4 sm:p-5">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-slate-400">{stat.label}</span>
                 <span className={`h-2 w-2 rounded-full ${stat.marker} shadow-[0_0_12px_rgba(134,239,172,0.5)]`} />
               </div>
-              <p className="mt-3 text-2xl font-semibold tracking-tight text-white sm:text-3xl">{loading && !totals ? '—' : format(stat.value, { compact: true })}</p>
+              <p className="mt-3 break-words text-xl font-semibold tracking-tight text-white sm:text-2xl">{loading && !totals ? '—' : format(stat.value)}</p>
               <p className="mt-1 text-[11px] text-slate-500">{stat.note}</p>
             </motion.article>
           ))}
@@ -132,7 +140,7 @@ export default function Dashboard() {
         <main className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-6">
           <div className="order-2 space-y-5 lg:order-1 lg:space-y-6">
             <section className="glass-panel p-4 sm:p-6">
-              <SectionTitle eyebrow="Cashflow" title="Where your income goes" detail="A simple breakdown of what came in and how you’ve allocated it." />
+              <SectionTitle eyebrow="Monthly breakdown" title="Where your money went" detail="Income, spending, investments, and what remains this month." />
               <CashflowBreakdown summary={cashflowSummary} />
             </section>
 
@@ -158,7 +166,7 @@ export default function Dashboard() {
                           <p className="mt-0.5 text-[11px] text-slate-500">{new Date(transaction.date).toLocaleDateString()} · {transaction.bucket}</p>
                         </div>
                       </div>
-                      <span className="shrink-0 text-sm font-semibold tabular-nums text-slate-200">{format(transaction.amount, { compact: true })}</span>
+                      <span className="shrink-0 text-sm font-semibold tabular-nums text-slate-200">{format(transaction.amount)}</span>
                     </li>
                   ))}
                 </ul>
@@ -167,10 +175,10 @@ export default function Dashboard() {
           </div>
 
           <aside className="order-1 lg:order-2 lg:sticky lg:top-5">
-            <OmniInput onSaved={refresh} />
+            <OmniInput onSaved={refresh} investments={portfolio?.investments || []} />
           </aside>
         </main>
-        <footer className="pt-8 text-center text-[10px] tracking-wide text-slate-600">PRIVATE BY DESIGN · POWERED BY SUPABASE</footer>
+        <footer className="pt-8 text-center text-[10px] tracking-wide text-slate-600">DESIGNED BY MUTTAHAR · POWERED BY SUPABASE</footer>
       </div>
     </div>
   );

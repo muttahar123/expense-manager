@@ -40,6 +40,7 @@ create table if not exists public.investments (
   asset_type      text not null,
   invested_amount numeric not null default 0 check (invested_amount >= 0),
   current_value   numeric not null default 0 check (current_value >= 0),
+  realized_value  numeric not null default 0 check (realized_value >= 0),
   status          text not null default 'Active' check (status in ('Active','Closed')),
   quantity        numeric check (quantity is null or quantity >= 0),
   notes           text,
@@ -48,6 +49,9 @@ create table if not exists public.investments (
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now()
 );
+
+-- Add this field to databases created with an earlier version of the schema.
+alter table public.investments add column if not exists realized_value numeric not null default 0 check (realized_value >= 0);
 
 create index if not exists investments_user_idx        on public.investments (user_id);
 create index if not exists investments_user_status_idx on public.investments (user_id, status);

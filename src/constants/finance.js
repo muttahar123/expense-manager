@@ -4,6 +4,7 @@ export const TX_TYPES = [
   { key: 'Expense', label: 'Expense', color: 'expense' },
   { key: 'Income', label: 'Income', color: 'income' },
   { key: 'Investment', label: 'Investment', color: 'invest' },
+  { key: 'Return', label: 'Return', color: 'income' },
 ];
 
 export const EXPENSE_CATEGORIES = [

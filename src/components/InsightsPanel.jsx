@@ -8,10 +8,9 @@ const levelStyle = {
 
 const levelIcon = { success: '✓', warning: '!', info: 'i' };
 
-// Renders the Zero-API Smart Agent output.
 export default function InsightsPanel({ data, loading }) {
   if (loading) {
-    return <div className="glass-panel p-5 text-sm text-slate-400">Analyzing your finances…</div>;
+    return <div className="glass-panel p-5 text-sm text-slate-400">Looking at this month’s money…</div>;
   }
   if (!data) return null;
 
@@ -20,8 +19,9 @@ export default function InsightsPanel({ data, loading }) {
   return (
     <div className="space-y-2">
       <div className="mb-4">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-green-300/80">Personal insights</p>
-        <h3 className="mt-1 text-base font-semibold text-white">Patterns to know about</h3>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-green-300/80">Smart suggestions</p>
+        <h3 className="mt-1 text-base font-semibold text-white">A few helpful money tips</h3>
+        <p className="mt-1 text-xs text-slate-400">Based on the entries you’ve added this month.</p>
       </div>
       {items.map((it, i) => (
         <motion.div

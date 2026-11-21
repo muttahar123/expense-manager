@@ -18,10 +18,11 @@ const unwrap = ({ data, error }) => {
 function mapInvestment(row) {
   const investedAmount = Number(row.invested_amount) || 0;
   const currentValue = Number(row.current_value) || 0;
-  const pnl = round(currentValue - investedAmount);
+  const realizedValue = Number(row.realized_value) || 0;
+  const pnl = round(currentValue + realizedValue - investedAmount);
   return {
     id: row.id, assetName: row.asset_name, assetType: row.asset_type,
-    investedAmount, currentValue, status: row.status,
+    investedAmount, currentValue, realizedValue, status: row.status,
     quantity: row.quantity == null ? undefined : Number(row.quantity),
     notes: row.notes || undefined, openedAt: row.opened_at, closedAt: row.closed_at,
     createdAt: row.created_at, updatedAt: row.updated_at, pnl,
@@ -101,6 +102,26 @@ export async function createTransaction(input) {
   return mapTransaction(row);
 }
 
+export async function createInvestmentReturn(input) {
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error) throw error;
+  if (!user) throw new Error('Please sign in to add a return.');
+  const investment = unwrap(await supabase.from('investments').select('*').eq('id', input.investmentId).single());
+  const amount = Number(input.amount);
+  const updates = { realized_value: (Number(investment.realized_value) || 0) + amount };
+  if (input.sale) {
+    updates.current_value = Math.max(0, Number(investment.current_value) - amount);
+    if (updates.current_value === 0) updates.status = 'Closed';
+  }
+  unwrap(await supabase.from('investments').update(updates).eq('id', investment.id).select('id').single());
+  const row = unwrap(await supabase.from('transactions').insert({
+    user_id: user.id, type: 'Income', amount, category: input.sale ? 'Investment sale' : 'Investment return',
+    bucket: 'Income', date: input.date ? new Date(input.date).toISOString() : new Date().toISOString(),
+    notes: input.notes || null, investment_id: investment.id,
+  }).select('*').single());
+  return mapTransaction(row);
+}
+
 export async function listTransactions(params = {}) {
   let query = supabase.from('transactions').select('*, investment:investments(id, asset_name, asset_type)').order('date', { ascending: false }).limit(Math.min(Number(params.limit) || 100, 500));
   if (params.type) query = query.eq('type', params.type);
@@ -129,12 +150,12 @@ export async function createInvestment(input) {
 
 function portfolioSummary(investments) {
   const invested = investments.reduce((sum, item) => sum + item.investedAmount, 0);
-  const current = investments.reduce((sum, item) => sum + item.currentValue, 0);
+  const current = investments.reduce((sum, item) => sum + item.currentValue + item.realizedValue, 0);
   const classes = Object.values(investments.reduce((groups, item) => {
     const type = item.assetType || 'Other';
     groups[type] ||= { assetType: type, invested: 0, current: 0 };
     groups[type].invested += item.investedAmount;
-    groups[type].current += item.currentValue;
+    groups[type].current += item.currentValue + item.realizedValue;
     return groups;
   }, {})).map((item) => {
     const pnl = item.current - item.invested;
@@ -169,39 +190,55 @@ const pct = (part, whole) => whole > 0 ? round(part / whole * 100) : 0;
 function makeInsights(transactions, investments, budgetRule = DEFAULT_BUDGET_RULE) {
   const totals = { income: 0, expense: 0, investment: 0 };
   const buckets = { Needs: 0, Wants: 0, Investments: 0, Savings: 0 };
+  const expenseCategories = {};
   transactions.forEach((t) => {
     if (t.type === 'Income') totals.income += t.amount;
-    else if (t.type === 'Expense') totals.expense += t.amount;
+    else if (t.type === 'Expense') {
+      totals.expense += t.amount;
+      expenseCategories[t.category || 'Other'] = (expenseCategories[t.category || 'Other'] || 0) + t.amount;
+    }
     else if (t.type === 'Investment') totals.investment += t.amount;
     if (t.bucket && t.bucket !== 'Income') buckets[t.bucket] = (buckets[t.bucket] || 0) + t.amount;
   });
   buckets.Savings = round(buckets.Savings + Math.max(totals.income - buckets.Needs - buckets.Wants - buckets.Investments, 0));
   Object.keys(totals).forEach((key) => { totals[key] = round(totals[key]); });
   totals.net = round(totals.income - totals.expense - totals.investment);
+  totals.available = totals.net;
   Object.keys(buckets).forEach((key) => { buckets[key] = round(buckets[key]); });
   const cashInsights = [];
   if (totals.income <= 0) cashInsights.push({ level: 'info', category: 'Cashflow', message: 'No income logged yet this period. Add your salary to unlock the 50/30/20 analysis.' });
   else {
-    const targets = [
-      { key: 'Needs', limit: budgetRule.needs, label: 'needs (rent, bills, groceries)' },
-      { key: 'Wants', limit: budgetRule.wants, label: 'wants (dining, shopping, fun)' },
-      { key: 'Savings', limit: budgetRule.savings, label: 'savings & investments', floor: true },
-    ];
-    targets.forEach(({ key, limit, label, floor }) => {
-      const share = key === 'Savings' ? pct(buckets.Savings + buckets.Investments, totals.income) : pct(buckets[key], totals.income);
-      const ok = floor ? share >= limit : share <= limit;
-      const message = floor
-        ? ok ? `Great — ${share}% of income is going to savings & investments, at or above the ${limit}% target.` : `You're saving/investing ${share}% of income — below the ${limit}% target. Try to set aside a little more.`
-        : ok ? `Your ${label} are a healthy ${share}% of income (benchmark ${limit}%).` : `Your ${label} are ${share}% of income, over the ${limit}% benchmark by ${round(share - limit)} points.`;
-      cashInsights.push({ level: ok ? 'success' : 'warning', category: key, message, share, benchmark: limit });
-    });
+    const wantsShare = pct(buckets.Wants, totals.income);
+    const topWant = Object.entries(expenseCategories)
+      .filter(([category]) => CATEGORY_TO_BUCKET[category] === 'Wants')
+      .sort((a, b) => b[1] - a[1])[0];
+    if (wantsShare > (Number(budgetRule.wants) || 30)) {
+      cashInsights.push({
+        level: 'warning', category: 'Flexible spending',
+        message: `You spent ${wantsShare}% of this month's income on wants, above your ${budgetRule.wants || 30}% guide.${topWant ? ` ${topWant[0]} was the biggest at ${round(topWant[1])}. Consider setting a limit for the rest of the month.` : ' Try setting a limit for the rest of the month.'}`,
+      });
+    } else if (totals.expense > totals.income * 0.5) {
+      cashInsights.push({ level: 'warning', category: 'Spending check', message: `Everyday expenses are ${pct(totals.expense, totals.income)}% of this month's income. Review the category breakdown and pause any non-essential purchases if you can.` });
+    } else if (totals.available > 0) {
+      cashInsights.push({ level: 'success', category: 'Good progress', message: `You have ${totals.available} left after logged expenses and investments this month. Consider keeping some aside for savings.` });
+    } else if (totals.available < 0) {
+      cashInsights.push({ level: 'warning', category: 'Cash check', message: `Your recorded spending and investments are ${Math.abs(totals.available)} more than this month's income. Review recent entries and try to pause flexible spending.` });
+    }
+    const savingShare = pct(buckets.Savings + buckets.Investments, totals.income);
+    const savingTarget = Number(budgetRule.savings) || 20;
+    cashInsights.push(savingShare >= savingTarget
+      ? { level: 'success', category: 'Saving', message: `Nice work — you’ve put ${savingShare}% of this month’s income towards savings and investments.` }
+      : { level: 'info', category: 'Saving idea', message: `You’ve put ${savingShare}% towards savings and investments so far. If it fits your budget, try setting a little aside before other spending.` });
   }
   const portfolio = portfolioSummary(investments);
   const investmentInsights = investments.length
     ? portfolio.classes.map((item) => ({ level: item.pnl >= 0 ? 'success' : 'warning', category: item.assetType, message: `${item.assetType} is ${item.pnl >= 0 ? 'up' : 'down'} ${Math.abs(item.roi)}% (${item.pnl >= 0 ? '+' : ''}${item.pnl} on ${item.invested} invested).`, roi: item.roi, pnl: item.pnl }))
     : [{ level: 'info', category: 'Portfolio', message: 'No investments tracked yet. Log your first holding to see PnL and ROI.' }];
   investmentInsights.unshift({ level: portfolio.pnl >= 0 ? 'success' : 'warning', category: 'Wealth', message: portfolio.roi > 10 ? `Overall wealth is strong: portfolio up ${portfolio.roi}% (+${portfolio.pnl}).` : portfolio.roi >= 0 ? `Overall wealth is stable: portfolio up ${portfolio.roi}% (+${portfolio.pnl}).` : portfolio.roi > -10 ? `Overall wealth is slightly down ${Math.abs(portfolio.roi)}% (${portfolio.pnl}), within normal volatility.` : `Caution: portfolio is down ${Math.abs(portfolio.roi)}% (${portfolio.pnl}). Review your laggards.` });
-  return { generatedAt: new Date().toISOString(), cashflow: { summary: { totals, buckets }, insights: cashInsights }, investment: { summary: portfolio, insights: investmentInsights }, insights: [...cashInsights, ...investmentInsights] };
+  const categoryDetails = Object.entries(expenseCategories)
+    .map(([category, amount]) => ({ category, amount: round(amount) }))
+    .sort((a, b) => b.amount - a.amount);
+  return { generatedAt: new Date().toISOString(), cashflow: { summary: { totals, buckets, expenseCategories: categoryDetails }, insights: cashInsights }, investment: { summary: portfolio, insights: investmentInsights }, insights: [...cashInsights, ...investmentInsights] };
 }
 
 export async function getInsights(params = {}) {
@@ -213,5 +250,5 @@ export async function getInsights(params = {}) {
     supabase.from('investments').select('*').then(unwrap),
     getProfileRow(),
   ]);
-  return makeInsights(transactions.map((t) => ({ type: t.type, amount: Number(t.amount) || 0, bucket: t.bucket })), investmentRows.map(mapInvestment), profile.budget_rule || DEFAULT_BUDGET_RULE);
+  return makeInsights(transactions.map((t) => ({ type: t.type, amount: Number(t.amount) || 0, bucket: t.bucket, category: t.category })), investmentRows.map(mapInvestment), profile.budget_rule || DEFAULT_BUDGET_RULE);
 }

@@ -12,6 +12,7 @@ export default function CashflowBreakdown({ summary }) {
   const { format } = useUser();
   const totals = summary?.totals;
   const buckets = summary?.buckets || {};
+  const expenseCategories = summary?.expenseCategories || [];
   const income = Number(totals?.income) || 0;
 
   if (!summary || income <= 0) {
@@ -25,23 +26,23 @@ export default function CashflowBreakdown({ summary }) {
   }
 
   const spent = (Number(totals.expense) || 0) + (Number(totals.investment) || 0);
-  const remaining = Math.max(income - spent, 0);
+  const remaining = income - spent;
 
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-4 rounded-2xl border border-white/[0.08] bg-gradient-to-br from-green-400/[0.12] via-white/[0.035] to-transparent p-4 sm:flex-row sm:items-end sm:justify-between sm:p-5">
         <div>
-          <p className="text-xs font-medium uppercase tracking-[0.16em] text-slate-400">Total income</p>
-          <p className="mt-1 text-3xl font-semibold tracking-tight text-white sm:text-4xl">{format(income, { compact: true })}</p>
+          <p className="text-xs font-medium uppercase tracking-[0.16em] text-slate-400">Income this month</p>
+          <p className="mt-1 text-3xl font-semibold tracking-tight text-white sm:text-4xl">{format(income)}</p>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:min-w-64">
           <div className="rounded-xl border border-white/[0.08] bg-black/20 p-3">
             <p className="text-[11px] text-slate-400">Spent + invested</p>
-            <p className="mt-1 text-sm font-semibold text-white">{format(spent, { compact: true })}</p>
+            <p className="mt-1 text-sm font-semibold text-white">{format(spent)}</p>
           </div>
-          <div className="rounded-xl border border-green-300/15 bg-green-300/[0.08] p-3">
-            <p className="text-[11px] text-green-100/70">Left over</p>
-            <p className="mt-1 text-sm font-semibold text-green-100">{format(remaining, { compact: true })}</p>
+          <div className={`rounded-xl border p-3 ${remaining < 0 ? 'border-rose-300/15 bg-rose-300/[0.08]' : 'border-green-300/15 bg-green-300/[0.08]'}`}>
+            <p className={`text-[11px] ${remaining < 0 ? 'text-rose-100/70' : 'text-green-100/70'}`}>{remaining < 0 ? 'Over income by' : 'Available'}</p>
+            <p className={`mt-1 break-words text-sm font-semibold ${remaining < 0 ? 'text-rose-100' : 'text-green-100'}`}>{format(Math.abs(remaining))}</p>
           </div>
         </div>
       </div>
@@ -56,7 +57,7 @@ export default function CashflowBreakdown({ summary }) {
               <div className="mb-1.5 flex items-center justify-between gap-3 text-sm">
                 <span className="font-medium text-slate-200">{key}</span>
                 <span className="shrink-0 text-right tabular-nums text-slate-300">
-                  {format(amount, { compact: true })}<span className="ml-2 text-xs text-slate-500">{Math.round(share)}%</span>
+                  {format(amount)}<span className="ml-2 text-xs text-slate-500">{Math.round(share)}%</span>
                 </span>
               </div>
               <div className="h-2.5 overflow-hidden rounded-full bg-white/[0.07]">
@@ -67,8 +68,22 @@ export default function CashflowBreakdown({ summary }) {
         })}
       </div>
 
+      {expenseCategories.length > 0 && (
+        <div className="border-t border-white/[0.06] pt-4">
+          <h3 className="mb-2 text-sm font-semibold text-white">What you spent on</h3>
+          <ul className="divide-y divide-white/[0.05]">
+            {expenseCategories.map(({ category, amount }) => (
+              <li key={category} className="flex items-center justify-between gap-3 py-2 text-sm">
+                <span className="text-slate-300">{category}</span>
+                <span className="text-right font-medium tabular-nums text-slate-100">{format(amount)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <p className="border-t border-white/[0.06] pt-3 text-xs leading-5 text-slate-500">
-        Each bar is that category’s share of your income. If expenses are higher than income, bars can reach 100%.
+        Amounts use your recorded entries for this month. This is an estimate, not your live bank balance.
       </p>
     </div>
   );
