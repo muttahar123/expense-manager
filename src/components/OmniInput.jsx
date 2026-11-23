@@ -46,7 +46,7 @@ export default function OmniInput({ onSaved, investments = [] }) {
     watch,
     formState: { errors, isSubmitting },
   } = useForm({
-    defaultValues: { amount: '', category: '', date: todayISO(), notes: '', assetType: 'Stocks', investmentId: '', sale: false },
+    defaultValues: { amount: '', category: '', date: todayISO(), notes: '', assetType: 'Stocks', investmentId: '', sale: true },
   });
 
   const categoryValue = watch('category');
@@ -84,7 +84,7 @@ export default function OmniInput({ onSaved, investments = [] }) {
       }
       remember(type, data.category);
       setStatus('saved');
-      reset({ amount: '', category: data.category, date: todayISO(), notes: '', assetType: data.assetType, investmentId: '', sale: false });
+      reset({ amount: '', category: data.category, date: todayISO(), notes: '', assetType: data.assetType, investmentId: '', sale: true });
       onSaved?.();
       setTimeout(() => setStatus(null), 1600);
     } catch (err) {
@@ -231,7 +231,7 @@ export default function OmniInput({ onSaved, investments = [] }) {
         {type === 'Return' && (
           <label className="flex items-start gap-2 text-xs leading-5 text-slate-300">
             <input type="checkbox" {...register('sale')} className="mt-1 accent-green-400" />
-            This is a sale/withdrawal (reduce the holding’s current value). Leave unchecked for dividends or profit payouts.
+            This is a full sale: the entered proceeds go to savings and this holding closes. Uncheck for dividends or profit payouts that leave the holding active.
           </label>
         )}
 
@@ -290,7 +290,7 @@ export default function OmniInput({ onSaved, investments = [] }) {
             ? 'Saving…'
             : status === 'saved'
             ? '✓ Saved'
-            : type === 'Return' ? 'Add investment return to income' : `Add ${type}`}
+            : type === 'Return' ? 'Add investment payout to savings' : `Add ${type}`}
         </motion.button>
 
         <AnimatePresence>

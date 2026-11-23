@@ -21,7 +21,7 @@ export default function InsightsPanel({ data, loading }) {
       <div className="mb-4">
         <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-green-300/80">Smart suggestions</p>
         <h3 className="mt-1 text-base font-semibold text-white">A few helpful money tips</h3>
-        <p className="mt-1 text-xs text-slate-400">Based on the entries you’ve added this month.</p>
+        <p className="mt-1 text-xs text-slate-400">Spending tips use this month’s entries; portfolio notes use your tracked investments.</p>
       </div>
       {items.map((it, i) => (
         <motion.div

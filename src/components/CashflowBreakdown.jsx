@@ -14,8 +14,9 @@ export default function CashflowBreakdown({ summary }) {
   const buckets = summary?.buckets || {};
   const expenseCategories = summary?.expenseCategories || [];
   const income = Number(totals?.income) || 0;
+  const investmentReturns = Number(totals?.investmentReturns) || 0;
 
-  if (!summary || income <= 0) {
+  if (!summary || (income <= 0 && investmentReturns <= 0)) {
     return (
       <div className="flex min-h-52 flex-col items-center justify-center rounded-2xl border border-white/[0.06] bg-black/20 px-5 text-center">
         <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-xl text-brand-400">↗</span>
@@ -47,10 +48,17 @@ export default function CashflowBreakdown({ summary }) {
         </div>
       </div>
 
+      {investmentReturns > 0 && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-sky-300/15 bg-sky-300/[0.05] px-4 py-3 text-sm">
+          <span className="text-slate-300">Investment payouts moved to savings</span>
+          <span className="shrink-0 font-semibold tabular-nums text-sky-100">{format(investmentReturns)}</span>
+        </div>
+      )}
+
       <div className="space-y-4" aria-label="Income allocation">
         {allocations.map(({ key, color }) => {
           const amount = Number(buckets[key]) || 0;
-          const share = amount / income * 100;
+          const share = income > 0 ? amount / income * 100 : 0;
           const width = Math.min(share, 100);
           return (
             <div key={key}>

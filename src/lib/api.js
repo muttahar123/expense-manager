@@ -110,13 +110,18 @@ export async function createInvestmentReturn(input) {
   const amount = Number(input.amount);
   const updates = { realized_value: (Number(investment.realized_value) || 0) + amount };
   if (input.sale) {
-    updates.current_value = Math.max(0, Number(investment.current_value) - amount);
-    if (updates.current_value === 0) updates.status = 'Closed';
+    // This control represents a full sale: proceeds are transferred to savings
+    // and the holding is no longer part of the active portfolio, regardless
+    // of whether its last manually entered market value matches the proceeds.
+    updates.current_value = 0;
+    updates.status = 'Closed';
   }
   unwrap(await supabase.from('investments').update(updates).eq('id', investment.id).select('id').single());
   const row = unwrap(await supabase.from('transactions').insert({
+    // Keep the existing schema-compatible transaction type, but route returns
+    // to savings and identify them by investment_id in all cashflow analysis.
     user_id: user.id, type: 'Income', amount, category: input.sale ? 'Investment sale' : 'Investment return',
-    bucket: 'Income', date: input.date ? new Date(input.date).toISOString() : new Date().toISOString(),
+    bucket: 'Savings', date: input.date ? new Date(input.date).toISOString() : new Date().toISOString(),
     notes: input.notes || null, investment_id: investment.id,
   }).select('*').single());
   return mapTransaction(row);
@@ -167,7 +172,9 @@ function portfolioSummary(investments) {
 
 export async function listInvestments() {
   const rows = unwrap(await supabase.from('investments').select('*').order('created_at', { ascending: false }));
-  const investments = rows.map(mapInvestment);
+  // Closed/sold holdings stay in the database for transaction history, but
+  // should no longer appear as part of the current portfolio.
+  const investments = rows.filter((row) => row.status === 'Active').map(mapInvestment);
   return { investments, summary: portfolioSummary(investments) };
 }
 
@@ -187,20 +194,24 @@ export async function updateInvestment(id, input) {
 }
 
 const pct = (part, whole) => whole > 0 ? round(part / whole * 100) : 0;
-function makeInsights(transactions, investments, budgetRule = DEFAULT_BUDGET_RULE) {
-  const totals = { income: 0, expense: 0, investment: 0 };
+function makeInsights(transactions, investments, budgetRule = DEFAULT_BUDGET_RULE, savingsBalance = 0) {
+  const totals = { income: 0, expense: 0, investment: 0, investmentReturns: 0, savingsBalance: round(savingsBalance) };
   const buckets = { Needs: 0, Wants: 0, Investments: 0, Savings: 0 };
   const expenseCategories = {};
   transactions.forEach((t) => {
-    if (t.type === 'Income') totals.income += t.amount;
+    const isInvestmentReturn = t.type === 'Income' && (t.investmentId || /^Investment (return|sale)$/i.test(t.category || ''));
+    if (isInvestmentReturn) totals.investmentReturns += t.amount;
+    else if (t.type === 'Income') totals.income += t.amount;
     else if (t.type === 'Expense') {
       totals.expense += t.amount;
       expenseCategories[t.category || 'Other'] = (expenseCategories[t.category || 'Other'] || 0) + t.amount;
     }
     else if (t.type === 'Investment') totals.investment += t.amount;
-    if (t.bucket && t.bucket !== 'Income') buckets[t.bucket] = (buckets[t.bucket] || 0) + t.amount;
+    if (t.bucket && t.bucket !== 'Income' && !isInvestmentReturn) buckets[t.bucket] = (buckets[t.bucket] || 0) + t.amount;
   });
-  buckets.Savings = round(buckets.Savings + Math.max(totals.income - buckets.Needs - buckets.Wants - buckets.Investments, 0));
+  // Unspent regular income remains savings; investment proceeds are added
+  // separately and never inflate the regular income or expense budget.
+  buckets.Savings = round(buckets.Savings + Math.max(totals.income - totals.expense - totals.investment, 0) + totals.investmentReturns);
   Object.keys(totals).forEach((key) => { totals[key] = round(totals[key]); });
   totals.net = round(totals.income - totals.expense - totals.investment);
   totals.available = totals.net;
@@ -224,11 +235,11 @@ function makeInsights(transactions, investments, budgetRule = DEFAULT_BUDGET_RUL
     } else if (totals.available < 0) {
       cashInsights.push({ level: 'warning', category: 'Cash check', message: `Your recorded spending and investments are ${Math.abs(totals.available)} more than this month's income. Review recent entries and try to pause flexible spending.` });
     }
-    const savingShare = pct(buckets.Savings + buckets.Investments, totals.income);
+    const savingShare = pct(buckets.Savings, totals.income);
     const savingTarget = Number(budgetRule.savings) || 20;
     cashInsights.push(savingShare >= savingTarget
-      ? { level: 'success', category: 'Saving', message: `Nice work — you’ve put ${savingShare}% of this month’s income towards savings and investments.` }
-      : { level: 'info', category: 'Saving idea', message: `You’ve put ${savingShare}% towards savings and investments so far. If it fits your budget, try setting a little aside before other spending.` });
+      ? { level: 'success', category: 'Saving', message: `Nice work — ${savingShare}% of your regular income is available for savings after expenses and investments.` }
+      : { level: 'info', category: 'Saving idea', message: `You have ${savingShare}% of regular income left for savings after expenses and investments. If spending is still ahead this month, consider pausing non-essential purchases.` });
   }
   const portfolio = portfolioSummary(investments);
   const investmentInsights = investments.length
@@ -238,6 +249,9 @@ function makeInsights(transactions, investments, budgetRule = DEFAULT_BUDGET_RUL
   const categoryDetails = Object.entries(expenseCategories)
     .map(([category, amount]) => ({ category, amount: round(amount) }))
     .sort((a, b) => b.amount - a.amount);
+  if (totals.investmentReturns > 0) {
+    cashInsights.push({ level: 'success', category: 'Investment returns', message: `${round(totals.investmentReturns)} from investment payouts went directly to savings and is kept separate from regular income.` });
+  }
   return { generatedAt: new Date().toISOString(), cashflow: { summary: { totals, buckets, expenseCategories: categoryDetails }, insights: cashInsights }, investment: { summary: portfolio, insights: investmentInsights }, insights: [...cashInsights, ...investmentInsights] };
 }
 
@@ -250,5 +264,26 @@ export async function getInsights(params = {}) {
     supabase.from('investments').select('*').then(unwrap),
     getProfileRow(),
   ]);
-  return makeInsights(transactions.map((t) => ({ type: t.type, amount: Number(t.amount) || 0, bucket: t.bucket, category: t.category })), investmentRows.map(mapInvestment), profile.budget_rule || DEFAULT_BUDGET_RULE);
+  // The dashboard shows a month view, but savings must carry over between
+  // months. Calculate the running balance from the user's full ledger.
+  let savingsBalance = 0;
+  if (params.from || params.to) {
+    const allRows = unwrap(await supabase.from('transactions').select('type, amount, category, investment_id'));
+    for (const row of allRows) {
+      const amount = Number(row.amount) || 0;
+      const isInvestmentReturn = row.type === 'Income' && (row.investment_id || /^Investment (return|sale)$/i.test(row.category || ''));
+      if (isInvestmentReturn) savingsBalance += amount;
+      else if (row.type === 'Income') savingsBalance += amount;
+      else if (row.type === 'Expense' || row.type === 'Investment') savingsBalance -= amount;
+    }
+  } else {
+    savingsBalance = transactions.reduce((balance, row) => {
+      const amount = Number(row.amount) || 0;
+      const isInvestmentReturn = row.type === 'Income' && (row.investment_id || /^Investment (return|sale)$/i.test(row.category || ''));
+      if (isInvestmentReturn || row.type === 'Income') return balance + amount;
+      if (row.type === 'Expense' || row.type === 'Investment') return balance - amount;
+      return balance;
+    }, 0);
+  }
+  return makeInsights(transactions.map((t) => ({ type: t.type, amount: Number(t.amount) || 0, bucket: t.bucket, category: t.category, investmentId: t.investment_id })), investmentRows.filter((row) => row.status === 'Active').map(mapInvestment), profile.budget_rule || DEFAULT_BUDGET_RULE, savingsBalance);
 }
