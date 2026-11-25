@@ -198,20 +198,22 @@ function makeInsights(transactions, investments, budgetRule = DEFAULT_BUDGET_RUL
   const totals = { income: 0, expense: 0, investment: 0, investmentReturns: 0, savingsBalance: round(savingsBalance) };
   const buckets = { Needs: 0, Wants: 0, Investments: 0, Savings: 0 };
   const expenseCategories = {};
+  const activeInvestmentIds = new Set(investments.map((item) => item.id));
   transactions.forEach((t) => {
     const isInvestmentReturn = t.type === 'Income' && (t.investmentId || /^Investment (return|sale)$/i.test(t.category || ''));
+    const isClosedInvestmentContribution = t.type === 'Investment' && t.investmentId && !activeInvestmentIds.has(t.investmentId);
     if (isInvestmentReturn) totals.investmentReturns += t.amount;
     else if (t.type === 'Income') totals.income += t.amount;
     else if (t.type === 'Expense') {
       totals.expense += t.amount;
       expenseCategories[t.category || 'Other'] = (expenseCategories[t.category || 'Other'] || 0) + t.amount;
     }
-    else if (t.type === 'Investment') totals.investment += t.amount;
-    if (t.bucket && t.bucket !== 'Income' && !isInvestmentReturn) buckets[t.bucket] = (buckets[t.bucket] || 0) + t.amount;
+    else if (t.type === 'Investment' && !isClosedInvestmentContribution) totals.investment += t.amount;
+    if (t.bucket && t.bucket !== 'Income' && !isInvestmentReturn && !isClosedInvestmentContribution) buckets[t.bucket] = (buckets[t.bucket] || 0) + t.amount;
   });
-  // Unspent regular income remains savings; investment proceeds are added
-  // separately and never inflate the regular income or expense budget.
-  buckets.Savings = round(buckets.Savings + Math.max(totals.income - totals.expense - totals.investment, 0) + totals.investmentReturns);
+  // Keep the allocation chart tied to regular income. Investment sale proceeds
+  // are shown in their own row and included in the running savings balance.
+  buckets.Savings = round(buckets.Savings + Math.max(totals.income - totals.expense - totals.investment, 0));
   Object.keys(totals).forEach((key) => { totals[key] = round(totals[key]); });
   totals.net = round(totals.income - totals.expense - totals.investment);
   totals.available = totals.net;

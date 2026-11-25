@@ -87,7 +87,7 @@ export default function Dashboard() {
     { label: 'Regular income', value: totals?.income || 0, note: 'Investment payouts are tracked separately', marker: 'bg-green-300' },
     { label: 'Everyday spending', value: totals?.expense || 0, note: 'Your recorded expenses', marker: 'bg-white/60' },
     { label: 'Active investment', value: portfolio?.summary?.invested || 0, note: 'Principal in open holdings', marker: 'bg-emerald-500' },
-    { label: 'Current savings balance', value: totals?.savingsBalance || 0, note: 'All income − expenses − investments + payouts', marker: 'bg-sky-300' },
+    { label: 'Current savings balance', value: totals?.savingsBalance || 0, note: 'Running total across months, including investment payouts', marker: 'bg-sky-300' },
   ];
 
   return (

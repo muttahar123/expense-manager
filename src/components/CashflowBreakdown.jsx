@@ -4,7 +4,7 @@ const allocations = [
   { key: 'Needs', color: 'bg-emerald-200' },
   { key: 'Wants', color: 'bg-green-400' },
   { key: 'Investments', color: 'bg-green-600' },
-  { key: 'Savings', color: 'bg-white' },
+  { key: 'Savings', label: 'Saved this month', color: 'bg-white' },
 ];
 
 // Clear, direct comparison: each row shows the amount and share of income.
@@ -56,14 +56,14 @@ export default function CashflowBreakdown({ summary }) {
       )}
 
       <div className="space-y-4" aria-label="Income allocation">
-        {allocations.map(({ key, color }) => {
+        {allocations.map(({ key, label = key, color }) => {
           const amount = Number(buckets[key]) || 0;
           const share = income > 0 ? amount / income * 100 : 0;
           const width = Math.min(share, 100);
           return (
             <div key={key}>
               <div className="mb-1.5 flex items-center justify-between gap-3 text-sm">
-                <span className="font-medium text-slate-200">{key}</span>
+                <span className="font-medium text-slate-200">{label}</span>
                 <span className="shrink-0 text-right tabular-nums text-slate-300">
                   {format(amount)}<span className="ml-2 text-xs text-slate-500">{Math.round(share)}%</span>
                 </span>
@@ -91,7 +91,7 @@ export default function CashflowBreakdown({ summary }) {
       )}
 
       <p className="border-t border-white/[0.06] pt-3 text-xs leading-5 text-slate-500">
-        Amounts use your recorded entries for this month. This is an estimate, not your live bank balance.
+        “Saved this month” is this month’s income left after spending and active investments. The savings balance above carries over earlier months and includes investment payouts.
       </p>
     </div>
   );
