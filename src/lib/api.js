@@ -193,6 +193,69 @@ export async function updateInvestment(id, input) {
   return mapInvestment(unwrap(await supabase.from('investments').update(updates).eq('id', id).select('*').single()));
 }
 
+function mapLoan(row, payments = []) {
+  const principalAmount = Number(row.principal_amount) || 0;
+  const outstandingAmount = Number(row.outstanding_amount) || 0;
+  return {
+    id: row.id,
+    direction: row.direction,
+    personName: row.person_name,
+    principalAmount,
+    outstandingAmount,
+    repaidAmount: round(principalAmount - outstandingAmount),
+    dueDate: row.due_date || null,
+    notes: row.notes || '',
+    status: outstandingAmount <= 0 ? 'Settled' : 'Open',
+    createdAt: row.created_at,
+    payments: payments.map((payment) => ({
+      id: payment.id,
+      amount: Number(payment.amount) || 0,
+      date: payment.payment_date,
+      notes: payment.notes || '',
+    })),
+  };
+}
+
+export async function listLoans() {
+  const rows = unwrap(await supabase.from('loans').select('*').order('created_at', { ascending: false }));
+  if (!rows.length) return [];
+  const payments = unwrap(await supabase.from('loan_payments').select('*').in('loan_id', rows.map((loan) => loan.id)).order('payment_date', { ascending: false }));
+  const paymentsByLoan = payments.reduce((grouped, payment) => {
+    (grouped[payment.loan_id] ||= []).push(payment);
+    return grouped;
+  }, {});
+  return rows.map((loan) => mapLoan(loan, paymentsByLoan[loan.id] || []));
+}
+
+export async function createLoan(input) {
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error) throw error;
+  if (!user) throw new Error('Please sign in to add a loan.');
+  const amount = Number(input.amount);
+  const row = unwrap(await supabase.from('loans').insert({
+    user_id: user.id,
+    direction: input.direction,
+    person_name: input.personName.trim(),
+    principal_amount: amount,
+    outstanding_amount: amount,
+    due_date: input.dueDate || null,
+    notes: input.notes?.trim() || null,
+  }).select('*').single());
+  return mapLoan(row);
+}
+
+export async function recordLoanPayment(loan, input) {
+  const amount = Number(input.amount);
+  if (!Number.isFinite(amount) || amount <= 0) throw new Error('Enter a repayment greater than zero.');
+  if (amount > loan.outstandingAmount) throw new Error('Repayment cannot exceed the remaining balance.');
+  unwrap(await supabase.rpc('record_loan_payment', {
+    p_loan_id: loan.id,
+    p_amount: amount,
+    p_payment_date: input.date || new Date().toISOString().slice(0, 10),
+    p_notes: input.notes?.trim() || null,
+  }));
+}
+
 const pct = (part, whole) => whole > 0 ? round(part / whole * 100) : 0;
 function makeInsights(transactions, investments, budgetRule = DEFAULT_BUDGET_RULE, savingsBalance = 0) {
   const totals = { income: 0, expense: 0, investment: 0, investmentReturns: 0, savingsBalance: round(savingsBalance) };
@@ -261,10 +324,11 @@ export async function getInsights(params = {}) {
   let query = supabase.from('transactions').select('*');
   if (params.from) query = query.gte('date', new Date(params.from).toISOString());
   if (params.to) query = query.lte('date', new Date(params.to).toISOString());
-  const [transactions, investmentRows, profile] = await Promise.all([
+  const [transactions, investmentRows, profile, loans] = await Promise.all([
     query.then(unwrap),
     supabase.from('investments').select('*').then(unwrap),
     getProfileRow(),
+    supabase.from('loans').select('direction, outstanding_amount').then(unwrap),
   ]);
   // The dashboard shows a month view, but savings must carry over between
   // months. Calculate the running balance from the user's full ledger.
@@ -287,5 +351,10 @@ export async function getInsights(params = {}) {
       return balance;
     }, 0);
   }
+  const loanAdjustment = loans.reduce((balance, loan) => {
+    const outstanding = Number(loan.outstanding_amount) || 0;
+    return balance + (loan.direction === 'Borrowed' ? outstanding : -outstanding);
+  }, 0);
+  savingsBalance += loanAdjustment;
   return makeInsights(transactions.map((t) => ({ type: t.type, amount: Number(t.amount) || 0, bucket: t.bucket, category: t.category, investmentId: t.investment_id })), investmentRows.filter((row) => row.status === 'Active').map(mapInvestment), profile.budget_rule || DEFAULT_BUDGET_RULE, savingsBalance);
 }

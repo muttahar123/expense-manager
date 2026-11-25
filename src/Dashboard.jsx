@@ -4,7 +4,8 @@ import OmniInput from './components/OmniInput.jsx';
 import InsightsPanel from './components/InsightsPanel.jsx';
 import CashflowBreakdown from './components/CashflowBreakdown.jsx';
 import InvestmentDashboard from './components/InvestmentDashboard.jsx';
-import { getInsights, listTransactions, listInvestments } from './lib/api.js';
+import LoansDashboard from './components/LoansDashboard.jsx';
+import { getInsights, listTransactions, listInvestments, listLoans } from './lib/api.js';
 import { useUser } from './context/UserContext.jsx';
 import { useAuth } from './context/AuthContext.jsx';
 import { CURRENCY_SYMBOLS } from './constants/finance.js';
@@ -61,19 +62,24 @@ export default function Dashboard() {
   const [insights, setInsights] = useState(null);
   const [recent, setRecent] = useState([]);
   const [portfolio, setPortfolio] = useState(null);
+  const [loans, setLoans] = useState([]);
+  const [schemaError, setSchemaError] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const [nextInsights, transactions, investments] = await Promise.all([
-        getInsights(thisMonthRange()), listTransactions({ limit: 6 }), listInvestments(),
+      const [nextInsights, transactions, investments, loanRecords] = await Promise.all([
+        getInsights(thisMonthRange()), listTransactions({ limit: 6 }), listInvestments(), listLoans(),
       ]);
       setInsights(nextInsights);
       setRecent(transactions);
       setPortfolio(investments);
-    } catch {
+      setLoans(loanRecords);
+      setSchemaError(false);
+    } catch (error) {
       setInsights(null);
+      setSchemaError(error?.code === 'PGRST205');
     } finally {
       setLoading(false);
     }
@@ -87,7 +93,7 @@ export default function Dashboard() {
     { label: 'Regular income', value: totals?.income || 0, note: 'Investment payouts are tracked separately', marker: 'bg-green-300' },
     { label: 'Everyday spending', value: totals?.expense || 0, note: 'Your recorded expenses', marker: 'bg-white/60' },
     { label: 'Active investment', value: portfolio?.summary?.invested || 0, note: 'Principal in open holdings', marker: 'bg-emerald-500' },
-    { label: 'Current savings balance', value: totals?.savingsBalance || 0, note: 'Running total across months, including investment payouts', marker: 'bg-sky-300' },
+    { label: 'Current savings balance', value: totals?.savingsBalance || 0, note: 'Adjusted for outstanding loans', marker: 'bg-green-300' },
   ];
 
   return (
@@ -111,10 +117,10 @@ export default function Dashboard() {
           </div>
         </header>
 
-        {schemaMissing && (
+        {(schemaMissing || schemaError) && (
           <div role="alert" className="glass-panel mb-5 border-green-300/20 p-4 text-sm text-green-50">
             <p className="font-semibold">Finish connecting your Supabase database</p>
-            <p className="mt-1 text-green-50/70">Run the full <code>supabase/schema.sql</code> file in your Supabase SQL Editor, then refresh. No extra server is needed.</p>
+            <p className="mt-1 text-green-50/70">Run the latest full <code>supabase/schema.sql</code> file in your Supabase SQL Editor, then refresh. This creates the loan tables too; no extra server is needed.</p>
           </div>
         )}
 
@@ -149,6 +155,11 @@ export default function Dashboard() {
             <section className="glass-panel p-4 sm:p-6">
               <SectionTitle eyebrow="Portfolio" title="Investments & performance" detail="See what you invested, its current value, and the difference." />
               <InvestmentDashboard data={portfolio} onRefresh={refresh} />
+            </section>
+
+            <section className="glass-panel p-4 sm:p-6">
+              <SectionTitle eyebrow="Personal ledger" title="Money lent & borrowed" detail="Track who owes you, what you owe, and every repayment. Outstanding amounts adjust your savings balance." />
+              <LoansDashboard loans={loans} savingsBalance={totals?.savingsBalance || 0} onRefresh={refresh} />
             </section>
 
             <section className="glass-panel p-4 sm:p-6">

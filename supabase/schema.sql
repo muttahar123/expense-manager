@@ -76,6 +76,37 @@ create index if not exists transactions_user_date_idx on public.transactions (us
 create index if not exists transactions_user_type_idx on public.transactions (user_id, type);
 
 -- ---------------------------------------------------------------------------
+--  loans — money lent to or borrowed from another person.
+--  Outstanding balances are reflected directly in the user's savings balance.
+-- ---------------------------------------------------------------------------
+create table if not exists public.loans (
+  id                 uuid primary key default gen_random_uuid(),
+  user_id            uuid not null references auth.users (id) on delete cascade,
+  direction          text not null check (direction in ('Lent', 'Borrowed')),
+  person_name        text not null,
+  principal_amount   numeric not null check (principal_amount > 0),
+  outstanding_amount numeric not null check (outstanding_amount >= 0 and outstanding_amount <= principal_amount),
+  due_date           date,
+  notes              text,
+  created_at         timestamptz not null default now(),
+  updated_at         timestamptz not null default now()
+);
+
+create index if not exists loans_user_created_idx on public.loans (user_id, created_at desc);
+
+create table if not exists public.loan_payments (
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid not null references auth.users (id) on delete cascade,
+  loan_id      uuid not null references public.loans (id) on delete cascade,
+  amount       numeric not null check (amount > 0),
+  payment_date date not null default current_date,
+  notes        text,
+  created_at   timestamptz not null default now()
+);
+
+create index if not exists loan_payments_user_loan_idx on public.loan_payments (user_id, loan_id, payment_date desc);
+
+-- ---------------------------------------------------------------------------
 --  keep updated_at fresh
 -- ---------------------------------------------------------------------------
 create or replace function public.set_updated_at()
@@ -96,6 +127,11 @@ create trigger profiles_set_updated_at
 drop trigger if exists investments_set_updated_at on public.investments;
 create trigger investments_set_updated_at
   before update on public.investments
+  for each row execute function public.set_updated_at();
+
+drop trigger if exists loans_set_updated_at on public.loans;
+create trigger loans_set_updated_at
+  before update on public.loans
   for each row execute function public.set_updated_at();
 
 -- ---------------------------------------------------------------------------
@@ -134,6 +170,8 @@ create trigger on_auth_user_created
 alter table public.profiles     enable row level security;
 alter table public.investments  enable row level security;
 alter table public.transactions enable row level security;
+alter table public.loans        enable row level security;
+alter table public.loan_payments enable row level security;
 
 -- profiles: a user can read/update only their own profile row.
 drop policy if exists "profiles self select" on public.profiles;
@@ -157,6 +195,72 @@ create policy "investments owner all" on public.investments
 drop policy if exists "transactions owner all" on public.transactions;
 create policy "transactions owner all" on public.transactions
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "loans owner all" on public.loans;
+create policy "loans owner all" on public.loans
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "loan payments owner all" on public.loan_payments;
+create policy "loan payments owner all" on public.loan_payments
+  for all using (
+    auth.uid() = user_id
+    and exists (select 1 from public.loans where loans.id = loan_id and loans.user_id = auth.uid())
+  ) with check (
+    auth.uid() = user_id
+    and exists (select 1 from public.loans where loans.id = loan_id and loans.user_id = auth.uid())
+  );
+
+-- The repayment is recorded and the outstanding balance adjusted atomically.
+create or replace function public.record_loan_payment(
+  p_loan_id uuid,
+  p_amount numeric,
+  p_payment_date date default current_date,
+  p_notes text default null
+)
+returns public.loans
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  current_loan public.loans%rowtype;
+begin
+  if auth.uid() is null then
+    raise exception 'You must be signed in to record a repayment.';
+  end if;
+  if p_amount is null or p_amount <= 0 then
+    raise exception 'Repayment amount must be greater than zero.';
+  end if;
+
+  select * into current_loan
+  from public.loans
+  where id = p_loan_id and user_id = auth.uid()
+  for update;
+
+  if not found then
+    raise exception 'Loan not found or not accessible.';
+  end if;
+  if p_amount > current_loan.outstanding_amount then
+    raise exception 'Repayment cannot exceed the outstanding balance.';
+  end if;
+
+  insert into public.loan_payments (user_id, loan_id, amount, payment_date, notes)
+  values (auth.uid(), current_loan.id, p_amount, coalesce(p_payment_date, current_date), nullif(trim(p_notes), ''));
+
+  update public.loans
+  set outstanding_amount = current_loan.outstanding_amount - p_amount
+  where id = current_loan.id
+  returning * into current_loan;
+
+  return current_loan;
+end;
+$$;
+
+revoke all on function public.record_loan_payment(uuid, numeric, date, text) from public;
+grant execute on function public.record_loan_payment(uuid, numeric, date, text) to authenticated;
+
+grant select, insert on public.loans to authenticated;
+grant select on public.loan_payments to authenticated;
 
 -- Make the new tables visible to the Supabase REST API immediately.
 notify pgrst, 'reload schema';
