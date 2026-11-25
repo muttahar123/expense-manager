@@ -11,7 +11,7 @@ function MoneyField(props) {
   return <input {...props} type="number" min="0.01" step="0.01" inputMode="decimal" required className="w-full rounded-xl border border-white/10 bg-black/25 px-3 py-2.5 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-green-300/40 focus:ring-2 focus:ring-green-300/10" />;
 }
 
-export default function LoansDashboard({ loans = [], savingsBalance = 0, onRefresh }) {
+export default function LoansDashboard({ loans = [], onRefresh }) {
   const { format } = useUser();
   const [direction, setDirection] = useState('Lent');
   const [personName, setPersonName] = useState('');
@@ -68,7 +68,7 @@ export default function LoansDashboard({ loans = [], savingsBalance = 0, onRefre
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3">
         <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-3 sm:p-4">
           <p className="text-[11px] text-slate-400">People owe you</p>
           <p className="mt-1 text-lg font-semibold tabular-nums text-green-200">{format(summary.Lent)}</p>
@@ -77,14 +77,10 @@ export default function LoansDashboard({ loans = [], savingsBalance = 0, onRefre
           <p className="text-[11px] text-slate-400">You owe people</p>
           <p className="mt-1 text-lg font-semibold tabular-nums text-white">{format(summary.Borrowed)}</p>
         </div>
-        <div className="col-span-2 rounded-2xl border border-green-300/15 bg-green-300/[0.06] p-3 sm:col-span-1 sm:p-4">
-          <p className="text-[11px] text-green-100/70">Savings after loans</p>
-          <p className="mt-1 text-lg font-semibold tabular-nums text-green-100">{format(savingsBalance)}</p>
-        </div>
       </div>
 
       <p className="rounded-xl border border-white/[0.06] bg-black/15 px-3 py-2.5 text-xs leading-5 text-slate-400">
-        Lent money is taken out of savings; borrowed money is added. Repayments adjust savings back and are saved in the payment history.
+        The savings balance above already reflects these loans: lent money is deducted and borrowed money is added. Repayments reverse that adjustment and stay in the payment history.
       </p>
 
       <form onSubmit={saveLoan} className="space-y-3 rounded-2xl border border-white/[0.07] bg-black/20 p-3 sm:p-4">

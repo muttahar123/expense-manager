@@ -4,7 +4,6 @@ const allocations = [
   { key: 'Needs', color: 'bg-emerald-200' },
   { key: 'Wants', color: 'bg-green-400' },
   { key: 'Investments', color: 'bg-green-600' },
-  { key: 'Savings', label: 'Saved this month', color: 'bg-white' },
 ];
 
 // Clear, direct comparison: each row shows the amount and share of income.
@@ -21,7 +20,7 @@ export default function CashflowBreakdown({ summary }) {
       <div className="flex min-h-52 flex-col items-center justify-center rounded-2xl border border-white/[0.06] bg-black/20 px-5 text-center">
         <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-xl text-brand-400">↗</span>
         <p className="text-sm font-semibold text-white">Your money snapshot will appear here</p>
-        <p className="mt-1 max-w-xs text-xs leading-5 text-slate-400">Add income, then track expenses and savings to see how your money is allocated.</p>
+        <p className="mt-1 max-w-xs text-xs leading-5 text-slate-400">Add income, then track expenses and investments to see what remains this month.</p>
       </div>
     );
   }
@@ -33,7 +32,7 @@ export default function CashflowBreakdown({ summary }) {
     <div className="space-y-5">
       <div className="flex flex-col gap-4 rounded-2xl border border-white/[0.08] bg-gradient-to-br from-green-400/[0.12] via-white/[0.035] to-transparent p-4 sm:flex-row sm:items-end sm:justify-between sm:p-5">
         <div>
-          <p className="text-xs font-medium uppercase tracking-[0.16em] text-slate-400">Income this month</p>
+          <p className="text-xs font-medium uppercase tracking-[0.16em] text-slate-400">Regular income · this month</p>
           <p className="mt-1 text-3xl font-semibold tracking-tight text-white sm:text-4xl">{format(income)}</p>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:min-w-64">
@@ -41,17 +40,17 @@ export default function CashflowBreakdown({ summary }) {
             <p className="text-[11px] text-slate-400">Spent + invested</p>
             <p className="mt-1 text-sm font-semibold text-white">{format(spent)}</p>
           </div>
-          <div className={`rounded-xl border p-3 ${remaining < 0 ? 'border-rose-300/15 bg-rose-300/[0.08]' : 'border-green-300/15 bg-green-300/[0.08]'}`}>
-            <p className={`text-[11px] ${remaining < 0 ? 'text-rose-100/70' : 'text-green-100/70'}`}>{remaining < 0 ? 'Over income by' : 'Available'}</p>
-            <p className={`mt-1 break-words text-sm font-semibold ${remaining < 0 ? 'text-rose-100' : 'text-green-100'}`}>{format(Math.abs(remaining))}</p>
+          <div className="rounded-xl border border-green-300/15 bg-green-300/[0.08] p-3">
+            <p className="text-[11px] text-green-100/70">{remaining < 0 ? 'Over budget · this month' : 'Saved · this month'}</p>
+            <p className="mt-1 break-words text-sm font-semibold text-green-100">{remaining < 0 ? '−' : '+'}{format(Math.abs(remaining))}</p>
           </div>
         </div>
       </div>
 
       {investmentReturns > 0 && (
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-sky-300/15 bg-sky-300/[0.05] px-4 py-3 text-sm">
-          <span className="text-slate-300">Investment payouts moved to savings</span>
-          <span className="shrink-0 font-semibold tabular-nums text-sky-100">{format(investmentReturns)}</span>
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-green-300/15 bg-green-300/[0.04] px-4 py-3 text-sm">
+          <span className="text-slate-300">Investment payouts added to savings</span>
+          <span className="shrink-0 font-semibold tabular-nums text-green-100">{format(investmentReturns)}</span>
         </div>
       )}
 
@@ -91,7 +90,7 @@ export default function CashflowBreakdown({ summary }) {
       )}
 
       <p className="border-t border-white/[0.06] pt-3 text-xs leading-5 text-slate-500">
-        “Saved this month” is this month’s income left after spending and active investments. The savings balance above carries over earlier months and includes investment payouts.
+        “Saved this month” is only this month’s regular income minus spending and investments. The savings balance at the top is your running total: it carries over previous months, includes investment payouts, and adjusts for open loans.
       </p>
     </div>
   );

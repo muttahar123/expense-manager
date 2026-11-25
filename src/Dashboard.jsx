@@ -93,7 +93,7 @@ export default function Dashboard() {
     { label: 'Regular income', value: totals?.income || 0, note: 'Investment payouts are tracked separately', marker: 'bg-green-300' },
     { label: 'Everyday spending', value: totals?.expense || 0, note: 'Your recorded expenses', marker: 'bg-white/60' },
     { label: 'Active investment', value: portfolio?.summary?.invested || 0, note: 'Principal in open holdings', marker: 'bg-emerald-500' },
-    { label: 'Current savings balance', value: totals?.savingsBalance || 0, note: 'Adjusted for outstanding loans', marker: 'bg-green-300' },
+    { label: 'Savings balance · running total', value: totals?.savingsBalance || 0, note: 'Carry-over included · adjusted for open loans', marker: 'bg-green-300' },
   ];
 
   return (
@@ -148,7 +148,7 @@ export default function Dashboard() {
         <main className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-6">
           <div className="order-2 space-y-5 lg:order-1 lg:space-y-6">
             <section className="glass-panel p-4 sm:p-6">
-              <SectionTitle eyebrow="Monthly breakdown" title="Where your money went" detail="Regular income funds expenses; investments and their payouts stay separately tracked." />
+              <SectionTitle eyebrow="This month only" title="Income, spending & what remains" detail="This month’s saved amount is different from your running savings balance above, which includes previous months and open loans." />
               <CashflowBreakdown summary={cashflowSummary} />
             </section>
 
@@ -158,8 +158,8 @@ export default function Dashboard() {
             </section>
 
             <section className="glass-panel p-4 sm:p-6">
-              <SectionTitle eyebrow="Personal ledger" title="Money lent & borrowed" detail="Track who owes you, what you owe, and every repayment. Outstanding amounts adjust your savings balance." />
-              <LoansDashboard loans={loans} savingsBalance={totals?.savingsBalance || 0} onRefresh={refresh} />
+              <SectionTitle eyebrow="Personal ledger" title="Money lent & borrowed" detail="Track who owes you, what you owe, and every repayment. Open loan amounts are already included in the savings balance above." />
+              <LoansDashboard loans={loans} onRefresh={refresh} />
             </section>
 
             <section className="glass-panel p-4 sm:p-6">
