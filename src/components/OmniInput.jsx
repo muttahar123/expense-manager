@@ -33,6 +33,8 @@ const typeRing = {
  */
 export default function OmniInput({ onSaved, investments = [] }) {
   const [type, setType] = useState('Expense');
+  const [categoryOpen, setCategoryOpen] = useState(false);
+  const [categoryQuery, setCategoryQuery] = useState('');
   const [status, setStatus] = useState(null); // 'saving' | 'saved' | 'error'
   const [errorMessage, setErrorMessage] = useState('');
   const { suggestions, remember } = useRecentCategories();
@@ -57,12 +59,19 @@ export default function OmniInput({ onSaved, investments = [] }) {
     if (type === 'Investment') return ASSET_TYPES;
     return EXPENSE_CATEGORIES;
   }, [type]);
+  const categoryChoices = [...new Set([...suggestions(type), ...categoryOptions])];
+  const visibleCategoryChoices = categoryQuery.trim()
+    ? categoryChoices.filter((category) => category.toLowerCase().includes(categoryQuery.trim().toLowerCase()))
+    : categoryChoices;
+  const categoryField = register('category', { required: type === 'Investment' ? 'Name this holding' : 'Choose a category' });
 
   // Smart default: pre-select a sensible category per type.
   useEffect(() => {
     const recent = suggestions(type);
     const fallback = type === 'Income' ? 'Salary' : type === 'Investment' ? '' : '';
     setValue('category', recent[0] || fallback);
+    setCategoryQuery('');
+    setCategoryOpen(false);
   }, [type, setValue, suggestions]);
 
   const onSubmit = async (data) => {
@@ -184,20 +193,39 @@ export default function OmniInput({ onSaved, investments = [] }) {
               className={`w-full rounded-2xl bg-ink-900 border border-white/10 px-4 py-3 outline-none focus:ring-2 ${typeRing[type]} transition`}
             />
           ) : (
-            <input
-              list="omni-categories"
-              type="text"
-              placeholder="Pick or type…"
-              {...register('category', { required: 'Choose a category' })}
-              className={`w-full rounded-2xl bg-ink-900 border border-white/10 px-4 py-3 outline-none focus:ring-2 ${typeRing[type]} transition`}
-            />
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Choose or type a category…"
+                autoComplete="off"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded={categoryOpen}
+                aria-controls="omni-category-options"
+                {...categoryField}
+                onFocus={() => { setCategoryQuery(''); setCategoryOpen(true); }}
+                onChange={(event) => { categoryField.onChange(event); setCategoryQuery(event.target.value); setCategoryOpen(true); }}
+                onBlur={(event) => { categoryField.onBlur(event); window.setTimeout(() => setCategoryOpen(false), 120); }}
+                className={`w-full rounded-2xl bg-ink-900 border border-white/10 px-4 py-3 pr-11 outline-none focus:ring-2 ${typeRing[type]} transition`}
+              />
+              <button type="button" aria-label="Show all categories" onMouseDown={(event) => event.preventDefault()} onClick={() => { setCategoryQuery(''); setCategoryOpen((open) => !open); }} className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-400 hover:text-white">
+                <span aria-hidden="true" className={`transition-transform ${categoryOpen ? 'rotate-180' : ''}`}>⌄</span>
+              </button>
+              {categoryOpen && (
+                <div id="omni-category-options" role="listbox" className="absolute left-0 right-0 top-full z-30 mt-2 max-h-52 overflow-y-auto rounded-2xl border border-white/10 bg-[#0b100d] p-2 shadow-2xl shadow-black/50">
+                  <p className="px-2 pb-1.5 pt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">{categoryQuery ? 'Matching categories' : 'All categories'}</p>
+                  {visibleCategoryChoices.length ? visibleCategoryChoices.map((category) => (
+                    <button key={category} type="button" role="option" aria-selected={categoryValue === category} onMouseDown={(event) => event.preventDefault()} onClick={() => { setValue('category', category, { shouldValidate: true }); setCategoryQuery(''); setCategoryOpen(false); }} className={`block w-full rounded-xl px-3 py-2 text-left text-sm transition ${categoryValue === category ? 'bg-green-300/10 text-green-100' : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'}`}>
+                      {category}
+                    </button>
+                  )) : (
+                    <p className="px-3 py-2 text-xs leading-5 text-slate-500">No saved match. You can still use “{categoryQuery}” as a custom category.</p>
+                  )}
+                </div>
+              )}
+            </div>
           )}
           {errors.investmentId && <p className="mt-1 text-xs text-accent-expense">{errors.investmentId.message}</p>}
-          <datalist id="omni-categories">
-            {categoryOptions.map((c) => (
-              <option key={c} value={c} />
-            ))}
-          </datalist>
           {errors.category && <p className="mt-1 text-xs text-accent-expense">{errors.category.message}</p>}
 
           {/* Recent-habit suggestion chips */}
@@ -213,7 +241,7 @@ export default function OmniInput({ onSaved, investments = [] }) {
                   <button
                     key={c}
                     type="button"
-                    onClick={() => setValue('category', c, { shouldValidate: true })}
+                    onClick={() => { setValue('category', c, { shouldValidate: true }); setCategoryQuery(''); setCategoryOpen(false); }}
                     className={`px-3 py-1 rounded-full text-xs font-medium border transition ${
                       categoryValue === c
                         ? 'bg-white/10 border-white/30 text-white'

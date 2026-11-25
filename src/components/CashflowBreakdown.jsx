@@ -14,8 +14,9 @@ export default function CashflowBreakdown({ summary }) {
   const expenseCategories = summary?.expenseCategories || [];
   const income = Number(totals?.income) || 0;
   const investmentReturns = Number(totals?.investmentReturns) || 0;
+  const savingsBalance = Number(totals?.savingsBalance) || 0;
 
-  if (!summary || (income <= 0 && investmentReturns <= 0)) {
+  if (!summary) {
     return (
       <div className="flex min-h-52 flex-col items-center justify-center rounded-2xl border border-white/[0.06] bg-black/20 px-5 text-center">
         <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-xl text-brand-400">↗</span>
@@ -26,7 +27,7 @@ export default function CashflowBreakdown({ summary }) {
   }
 
   const spent = (Number(totals.expense) || 0) + (Number(totals.investment) || 0);
-  const remaining = income - spent;
+  const savingsShare = income > 0 ? savingsBalance / income * 100 : 0;
 
   return (
     <div className="space-y-5">
@@ -35,14 +36,10 @@ export default function CashflowBreakdown({ summary }) {
           <p className="text-xs font-medium uppercase tracking-[0.16em] text-slate-400">Regular income · this month</p>
           <p className="mt-1 text-3xl font-semibold tracking-tight text-white sm:text-4xl">{format(income)}</p>
         </div>
-        <div className="grid grid-cols-2 gap-3 sm:min-w-64">
+        <div className="sm:min-w-64">
           <div className="rounded-xl border border-white/[0.08] bg-black/20 p-3">
             <p className="text-[11px] text-slate-400">Spent + invested</p>
             <p className="mt-1 text-sm font-semibold text-white">{format(spent)}</p>
-          </div>
-          <div className="rounded-xl border border-green-300/15 bg-green-300/[0.08] p-3">
-            <p className="text-[11px] text-green-100/70">{remaining < 0 ? 'Over budget · this month' : 'Saved · this month'}</p>
-            <p className="mt-1 break-words text-sm font-semibold text-green-100">{remaining < 0 ? '−' : '+'}{format(Math.abs(remaining))}</p>
           </div>
         </div>
       </div>
@@ -75,6 +72,19 @@ export default function CashflowBreakdown({ summary }) {
         })}
       </div>
 
+      <div className="rounded-2xl border border-green-300/15 bg-green-300/[0.055] p-4 sm:p-5">
+        <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-green-100/65">Savings balance · running total</p>
+            <p className="mt-1 text-xl font-semibold tabular-nums text-green-50">{format(savingsBalance)}</p>
+          </div>
+          <span className="text-xs tabular-nums text-green-100/70">{Math.round(savingsShare)}% of this month’s income</span>
+        </div>
+        <div className="h-2.5 overflow-hidden rounded-full bg-black/30" role="progressbar" aria-label="Running savings balance as a share of this month's income" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.max(0, Math.min(Math.round(savingsShare), 100))}>
+          <div className="h-full rounded-full bg-gradient-to-r from-green-500 to-emerald-200 shadow-[0_0_16px_rgba(74,222,128,0.3)] transition-[width] duration-700" style={{ width: `${Math.max(0, Math.min(savingsShare, 100))}%` }} />
+        </div>
+      </div>
+
       {expenseCategories.length > 0 && (
         <div className="border-t border-white/[0.06] pt-4">
           <h3 className="mb-2 text-sm font-semibold text-white">What you spent on</h3>
@@ -90,7 +100,7 @@ export default function CashflowBreakdown({ summary }) {
       )}
 
       <p className="border-t border-white/[0.06] pt-3 text-xs leading-5 text-slate-500">
-        “Saved this month” is only this month’s regular income minus spending and investments. The savings balance at the top is your running total: it carries over previous months, includes investment payouts, and adjusts for open loans.
+        The savings bar matches the running savings balance shown above. Monthly category bars show this month’s income allocation; the running balance also includes previous months, investment payouts, and open loans.
       </p>
     </div>
   );
